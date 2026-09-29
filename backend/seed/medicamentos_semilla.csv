@@ -1,0 +1,35 @@
+codigo,nombre,principio_activo,presentacion,categoria,precio_unitario,stock,busqueda,activo
+MED-001,Losartán 50 mg,Losartán potásico,Caja 30 comprimidos,Cardiovascular,1990,120,losartan 50 mg losartan potasico,1
+MED-002,Losartán 100 mg,Losartán potásico,Caja 30 comprimidos,Cardiovascular,2890,45,losartan 100 mg losartan potasico,1
+MED-003,Amlodipino 5 mg,Amlodipino,Caja 30 comprimidos,Cardiovascular,1490,80,amlodipino 5 mg amlodipino,1
+MED-004,Enalapril 10 mg,Enalapril maleato,Caja 20 comprimidos,Cardiovascular,990,60,enalapril 10 mg enalapril maleato,1
+MED-005,Atorvastatina 20 mg,Atorvastatina cálcica,Caja 30 comprimidos,Cardiovascular,2490,70,atorvastatina 20 mg atorvastatina calcica,1
+MED-006,Hidroclorotiazida 25 mg,Hidroclorotiazida,Caja 20 comprimidos,Cardiovascular,890,35,hidroclorotiazida 25 mg hidroclorotiazida,1
+MED-007,Ácido acetilsalicílico 100 mg,Ácido acetilsalicílico,Caja 30 comprimidos,Cardiovascular,790,150,acido acetilsalicilico 100 mg acido acetilsalicilico,1
+MED-008,Furosemida 40 mg,Furosemida,Caja 20 comprimidos,Cardiovascular,1090,25,furosemida 40 mg furosemida,1
+MED-009,Pregabalina 75 mg,Pregabalina,Caja 30 cápsulas,Salud mental,3490,90,pregabalina 75 mg pregabalina,1
+MED-010,Pregabalina 150 mg,Pregabalina,Caja 30 cápsulas,Salud mental,4990,40,pregabalina 150 mg pregabalina,1
+MED-011,Escitalopram 10 mg,Escitalopram oxalato,Caja 30 comprimidos,Salud mental,2990,55,escitalopram 10 mg escitalopram oxalato,1
+MED-012,Escitalopram 20 mg,Escitalopram oxalato,Caja 30 comprimidos,Salud mental,3990,30,escitalopram 20 mg escitalopram oxalato,1
+MED-013,Sertralina 50 mg,Sertralina clorhidrato,Caja 30 comprimidos,Salud mental,2590,48,sertralina 50 mg sertralina clorhidrato,1
+MED-014,Fluoxetina 20 mg,Fluoxetina clorhidrato,Caja 30 cápsulas,Salud mental,1890,0,fluoxetina 20 mg fluoxetina clorhidrato,1
+MED-015,Melatonina 3 mg,Melatonina,Frasco 30 comprimidos,Salud mental,2290,85,melatonina 3 mg melatonina,1
+MED-016,Celecoxib 200 mg,Celecoxib,Caja 10 cápsulas,Analgésicos y antiinflamatorios,2790,65,celecoxib 200 mg celecoxib,1
+MED-017,Paracetamol 500 mg,Paracetamol,Caja 16 comprimidos,Analgésicos y antiinflamatorios,590,200,paracetamol 500 mg paracetamol,1
+MED-018,Ibuprofeno 400 mg,Ibuprofeno,Caja 20 comprimidos,Analgésicos y antiinflamatorios,790,140,ibuprofeno 400 mg ibuprofeno,1
+MED-019,Naproxeno 550 mg,Naproxeno sódico,Caja 10 comprimidos,Analgésicos y antiinflamatorios,1190,0,naproxeno 550 mg naproxeno sodico,1
+MED-020,Multivitamínico adulto,Multivitamínico,Frasco 60 comprimidos,Suplementos alimenticios,3990,75,multivitaminico adulto multivitaminico,1
+MED-021,Calcio + Vitamina D,Carbonato de calcio / Colecalciferol,Frasco 60 comprimidos,Suplementos alimenticios,2890,50,calcio + vitamina d carbonato de calcio / colecalciferol,1
+MED-022,Ácido fólico 1 mg,Ácido fólico,Caja 30 comprimidos,Suplementos alimenticios,690,90,acido folico 1 mg acido folico,1
+MED-023,Sulfato ferroso 200 mg,Sulfato ferroso,Caja 30 comprimidos,Suplementos alimenticios,890,40,sulfato ferroso 200 mg sulfato ferroso,1
+MED-024,Omeprazol 20 mg,Omeprazol,Caja 30 cápsulas,Aparato digestivo,990,160,omeprazol 20 mg omeprazol,1
+MED-025,Famotidina 20 mg,Famotidina,Caja 20 comprimidos,Aparato digestivo,1290,30,famotidina 20 mg famotidina,1
+MED-026,Metformina 850 mg,Metformina clorhidrato,Caja 30 comprimidos,Otros,1190,110,metformina 850 mg metformina clorhidrato,1
+MED-027,Levotiroxina 50 mcg,Levotiroxina sódica,Caja 30 comprimidos,Otros,1590,65,levotiroxina 50 mcg levotiroxina sodica,1
+MED-028,Salbutamol inhalador 100 mcg,Salbutamol,Inhalador 200 dosis,Otros,2990,20,salbutamol inhalador 100 mcg salbutamol,1
+MED-029,Loratadina 10 mg,Loratadina,Caja 10 comprimidos,Otros,690,95,loratadina 10 mg loratadina,1
+MED-030,Levonorgestrel / Etinilestradiol,Levonorgestrel / Etinilestradiol,Caja 28 comprimidos,Otros,1990,0,levonorgestrel / etinilestradiol levonorgestrel / etinilestradiol,1
+MED-031,Pañal adulto talla M,Insumo,Paquete 10 unidades,Insumos,4990,12,panal adulto talla m insumo,1
+MED-032,Sabanilla desechable,Insumo,Paquete 20 unidades,Insumos,3990,3,sabanilla desechable insumo,1
+PRB-001,PRUEBA Concurrencia última unidad,Prueba concurrencia,Unidad,Prueba,1000,1,prueba concurrencia ultima unidad prueba concurrencia,1
+PRB-002,PRUEBA Concurrencia dos unidades,Prueba concurrencia,Unidad,Prueba,1000,2,prueba concurrencia dos unidades prueba concurrencia,1
