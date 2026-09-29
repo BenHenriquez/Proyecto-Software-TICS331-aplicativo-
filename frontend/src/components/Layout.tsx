@@ -4,9 +4,13 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 export default function Layout() {
   const principal = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
+  const rutaAnterior = useRef(pathname);
 
   // Al cambiar de pantalla, el foco va al contenido para que el teclado y los lectores sigan el cambio.
+  // En la primera carga no se mueve, para que el primer Tab llegue a "Saltar al contenido".
   useEffect(() => {
+    if (rutaAnterior.current === pathname) return;
+    rutaAnterior.current = pathname;
     principal.current?.focus();
   }, [pathname]);
 
