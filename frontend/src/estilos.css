@@ -1,0 +1,166 @@
+/* Criterios de diseño: letra >= 18px, alto contraste (>= 7:1), botones grandes, foco siempre visible. */
+:root {
+  --texto: #111111;
+  --fondo: #ffffff;
+  --primario: #003a70;      /* 11.9:1 sobre blanco */
+  --primario-texto: #ffffff;
+  --suave: #eef3f8;
+  --borde: #333333;
+  --foco: #ffbf00;
+  --aviso-fondo: #fff4d6;
+
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--fondo);
+}
+
+h1 {
+  font-size: 1.8rem;
+  line-height: 1.2;
+}
+
+a {
+  color: var(--primario);
+  text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+  outline: 4px solid var(--foco);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 7px var(--texto);
+}
+
+main:focus {
+  outline: none;
+}
+
+.saltar {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  padding: 0.75rem 1rem;
+  background: var(--texto);
+  color: var(--fondo);
+  z-index: 10;
+}
+
+.saltar:focus {
+  top: 1rem;
+}
+
+.cabecera {
+  background: var(--primario);
+  color: var(--primario-texto);
+  padding: 1rem;
+}
+
+.marca {
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.menu {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+}
+
+.menu a {
+  display: inline-block;
+  min-height: 48px;
+  padding: 0.6rem 1rem;
+  color: var(--primario-texto);
+  border: 2px solid var(--primario-texto);
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.menu a[aria-current='page'] {
+  background: var(--primario-texto);
+  color: var(--primario);
+}
+
+main {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 32rem;
+}
+
+label {
+  font-weight: 700;
+}
+
+input,
+button {
+  font: inherit;
+  min-height: 56px;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+}
+
+input {
+  border: 2px solid var(--borde);
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+button {
+  border: 2px solid var(--primario);
+  background: var(--primario);
+  color: var(--primario-texto);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.aviso {
+  background: var(--aviso-fondo);
+  border-left: 6px solid var(--texto);
+  padding: 0.75rem 1rem;
+}
+
+.pie {
+  max-width: 48rem;
+  margin: 2rem auto 0;
+  padding: 1rem;
+  border-top: 2px solid var(--suave);
+  font-size: 1rem;
+}
+
+@media (min-width: 40rem) {
+  .formulario {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: end;
+  }
+
+  .formulario label {
+    width: 100%;
+  }
+
+  .formulario input {
+    flex: 1;
+  }
+}
