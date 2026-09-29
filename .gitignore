@@ -1,0 +1,25 @@
+# Dependencias y builds
+node_modules/
+dist/
+
+# Variables de entorno (nunca subir claves)
+.env
+.env.*
+!.env.example
+
+# Base de datos local
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Datos reales de la farmacia: el repositorio es PÚBLICO
+*.xls
+*.xlsx
+
+# Configuración MCP local (puede contener claves)
+.mcp.json
+
+# Sistema
+.DS_Store
+Thumbs.db
