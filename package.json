@@ -1,0 +1,21 @@
+{
+  "name": "farmac-ia",
+  "private": true,
+  "description": "Prototipo FARMAC-IA · Farmacia Comunitaria de Peñalolén (TICS331, equipo BBMVV). Datos sintéticos.",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,magenta \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "seed": "npm run seed -w backend",
+    "test": "npm test --workspaces --if-present",
+    "build": "npm run build -w frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.4"
+  }
+}
