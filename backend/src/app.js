@@ -23,11 +23,15 @@ export function crearApp({ db, tokenBackoffice = '' } = {}) {
   });
 
   app.use((err, _req, res, _next) => {
-    // Un JSON mal formado es un error de quien envía, no del servidor.
-    if (err.type === 'entity.parse.failed') {
-      return res.status(400).json({
+    // Un JSON mal formado, un cuerpo demasiado grande o una dirección inválida son errores de
+    // quien envía (4xx), no del servidor.
+    if (Number.isInteger(err.status) && err.status >= 400 && err.status < 500) {
+      return res.status(err.status).json({
         motivo: 'solicitud_invalida',
-        mensaje: 'No pudimos leer lo que enviaste. Revisa los datos e inténtalo de nuevo.',
+        mensaje:
+          err.status === 413
+            ? 'Lo que enviaste es demasiado grande. Envía menos datos e inténtalo de nuevo.'
+            : 'No pudimos leer lo que enviaste. Revisa los datos e inténtalo de nuevo.',
       });
     }
     console.error(err);
