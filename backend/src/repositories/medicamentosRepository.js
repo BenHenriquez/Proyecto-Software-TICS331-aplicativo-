@@ -12,6 +12,20 @@ export function crearMedicamentosRepository(db) {
     for (const fila of filas) insertar.run(fila);
   });
 
+  // Un solo UPDATE: nunca "leer, cambiar en JS y guardar". Un valor null significa "no cambiar".
+  const actualizar = db.prepare(`
+    UPDATE medicamentos
+    SET precio_unitario = COALESCE(@precioUnitario, precio_unitario),
+        stock = COALESCE(@stock, stock),
+        version = version + 1
+    WHERE codigo = @codigo
+  `);
+  const leer = db.prepare('SELECT * FROM medicamentos WHERE codigo = ?');
+  const actualizarYLeer = db.transaction((datos) => {
+    if (actualizar.run(datos).changes === 0) return undefined;
+    return leer.get(datos.codigo);
+  });
+
   return {
     insertarVarios(medicamentos) {
       insertarTodos(medicamentos);
@@ -23,6 +37,12 @@ export function crearMedicamentosRepository(db) {
 
     buscarPorCodigo(codigo) {
       return db.prepare('SELECT * FROM medicamentos WHERE codigo = ?').get(codigo);
+    },
+
+    // US-13 (#11): cambia precio y/o stock y sube la version. Devuelve la fila actualizada,
+    // o undefined si el código no existe. Los valores ya vienen validados por el servicio.
+    actualizarPrecioYStock({ codigo, precioUnitario = null, stock = null }) {
+      return actualizarYLeer({ codigo, precioUnitario, stock });
     },
   };
 }
