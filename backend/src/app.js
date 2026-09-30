@@ -23,6 +23,13 @@ export function crearApp({ db, tokenBackoffice = '' } = {}) {
   });
 
   app.use((err, _req, res, _next) => {
+    // Un JSON mal formado es un error de quien envía, no del servidor.
+    if (err.type === 'entity.parse.failed') {
+      return res.status(400).json({
+        motivo: 'solicitud_invalida',
+        mensaje: 'No pudimos leer lo que enviaste. Revisa los datos e inténtalo de nuevo.',
+      });
+    }
     console.error(err);
     res.status(500).json({
       motivo: 'error_interno',
