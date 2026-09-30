@@ -71,7 +71,7 @@ Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para 
 **Detalle del `PUT /api/backoffice/medicamentos/:codigo` (#11):**
 
 - Requiere el header `x-backoffice-token` (token simulado). Si falta, es incorrecto, o el servidor no tiene token configurado: `401 { motivo: "no_autorizado", mensaje }`. La autorización se revisa antes que los datos.
-- Se editan solo `precioUnitario` y `stock`; cualquier otro campo se ignora. Debe venir al menos uno. Ambos deben ser números JSON **enteros** (no texto): `precioUnitario` mayor que cero y `stock` cero o mayor.
+- Se editan solo `precioUnitario` y `stock`; cualquier otro campo se ignora, incluido `version`: por ahora no se exige, y #12 la exigirá según §5. Debe venir al menos uno. Ambos deben ser números JSON **enteros** (no texto): `precioUnitario` mayor que cero y `stock` cero o mayor.
 - Si algún valor es inválido no se guarda nada y responde `400 { motivo: "datos_invalidos", mensaje, errores }`, con un motivo por campo (`errores.precioUnitario`, `errores.stock`, o `errores.general` si no vino ninguno).
 - Si el código no existe: `404 { motivo: "no_existe", mensaje }`.
 - Un cambio válido sube `version` en 1 y responde `200 { medicamento }` con `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible, version`.
