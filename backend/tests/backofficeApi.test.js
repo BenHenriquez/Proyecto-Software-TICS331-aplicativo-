@@ -104,6 +104,18 @@ describe('PUT /api/backoffice/medicamentos/:codigo', () => {
       expect(fila().version).toBe(2);
     });
 
+    it('solo modifica el medicamento indicado: el resto del catálogo queda igual', async () => {
+      const catalogo = () => db.prepare('SELECT * FROM medicamentos ORDER BY codigo').all();
+      const otros = (filas) => filas.filter((f) => f.codigo !== CODIGO);
+      const antes = catalogo();
+
+      await actualizar({ precioUnitario: 2500, stock: 7 });
+      const despues = catalogo();
+
+      expect(despues).toHaveLength(antes.length);
+      expect(otros(despues)).toEqual(otros(antes));
+    });
+
     it('responde con el medicamento en el formato de la API', async () => {
       const res = await actualizar({ precioUnitario: 2500 });
 
