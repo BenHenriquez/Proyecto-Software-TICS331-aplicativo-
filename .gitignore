@@ -23,3 +23,6 @@ dist/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Artefactos de TypeScript
+*.tsbuildinfo
