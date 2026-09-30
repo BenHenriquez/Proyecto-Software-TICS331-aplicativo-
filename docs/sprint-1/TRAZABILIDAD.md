@@ -1,4 +1,4 @@
-# Trazabilidad y verificación — #11 (US-13) y #17 (US-15)
+# Trazabilidad y verificación — #11 (US-13), #17 (US-15), #7 y #10 (US-02)
 
 > Evidencia de que cada criterio de aceptación del Sprint 1 tiene una comprobación concreta.
 > Datos 100% sintéticos. Última actualización: 2026-09-30.
@@ -10,13 +10,18 @@ Leyenda de estado: ✅ comprobado · ⏳ pendiente · ➡️ lo cubre otra tarea
 | Criterio (fuente) | Comprobación | Tipo | Tarea | Estado |
 |---|---|---|---|---|
 | US-13 feliz: el cambio se guarda (Gherkin del issue #2) | `backend/tests/backofficeApi.test.js` → «escenario feliz: el cambio queda guardado» | automático | #11 | ✅ |
-| US-13 feliz: aparece de inmediato para la vecina | mismo archivo → «el cambio se ve de inmediato en lo que consulta la vecina» (vía `POST /api/pedidos`, que lee precio y stock en vivo). **La búsqueda (#7) aún no existe**: se cubre en #14 | automático parcial | #11 → #14 | ✅ vía compra · ➡️ búsqueda en #14 |
+| US-13 feliz: aparece de inmediato para la vecina | mismo archivo → «el cambio se ve de inmediato en lo que consulta la vecina» (vía `POST /api/pedidos`, que lee precio y stock en vivo) + `backend/tests/medicamentosApi.test.js` → «refleja al instante un cambio de precio y stock hecho en el backoffice» (vía la búsqueda, #7). La prueba del panel completo queda en #14 | automático | #11, #7 → #14 | ✅ compra y búsqueda · ➡️ panel en #14 |
 | US-13 error: rechaza, informa el motivo y mantiene el valor anterior | mismo archivo → «escenario de error: valor inválido…» (18 valores inválidos, incluidos enormes y sobre los topes; campo válido + inválido, cuerpo vacío, sin cuerpo; topes exactos aceptados y guardados como enteros) | automático | #11 | ✅ |
 | Regla 3: el stock nunca queda negativo | casos `stock` `-1` y decimal + CHECK de la tabla | automático | #11 | ✅ |
 | Regla 5: token simulado desde `.env`, declarado en el README | «token simulado del backoffice» (401 sin token / incorrecto / vacío / servidor sin token; 401 antes que 400 y 404) + README | automático | #11 | ✅ |
 | Regla 6: mensajes en español simple, sin códigos | «los mensajes son texto simple en español…» | automático | #11 | ✅ |
 | El `PUT` solo toca el medicamento indicado | «solo modifica el medicamento indicado…» | automático | #11 | ✅ |
 | JSON mal formado responde 400, no 500 | `backend/tests/jsonInvalido.test.js` | automático | #11 | ✅ |
+| US-02 feliz: por nombre o principio activo se ve nombre oficial, dosificación, precio y disponibilidad | `backend/tests/us02-busqueda.funcional.test.js` → «Escenario feliz» con «Losartán» y «Losartán potásico» | automático | #7, #10 | ✅ |
+| US-02 error sin coincidencias: se informa claramente | mismo archivo → «Escenario de error — sin coincidencias» (`resultados: []` + `mensaje` en español) | automático | #7, #10 | ✅ |
+| US-02 error sin stock (backend): aparece como no disponible y no se puede comprar | mismo archivo → «Escenario de error — sin stock» (`disponible: false` y `POST /api/pedidos` responde 409) | automático | #7, #10 | ✅ · ➡️ pantalla en #9 |
+| Regla 4: búsqueda sin distinguir mayúsculas ni tildes («Losartan» = «Losartán»), parcial y por principio activo | mismo archivo + `backend/tests/medicamentosApi.test.js` (mayúsculas, tildes, espacios, parcial, varias palabras, `%`/`_` literales, inactivos, `q` corto/repetido/largo → 400) | automático | #7, #10 | ✅ |
+| La columna `busqueda` de la semilla coincide con la normalización del servidor | `medicamentosApi.test.js` → «coincide con la columna busqueda de toda la semilla» | automático | #6, #7 | ✅ |
 | Concurrencia de US-15 no se rompe (Gherkin del issue #3) | `backend/tests/us15-concurrencia.test.js` se ejecuta en cada `npm test` | regresión | #11, #17 | ✅ |
 | US-15 «elegir cantidad» con total a la vista | `frontend/src/components/SelectorCantidad.test.tsx` → «escenario feliz…» | automático | #17 | ✅ |
 | US-15 cantidad fuera de rango se informa y no deja continuar | mismo archivo → «escenario de error: cantidad inválida» (0, 25, 1.5, vacío, máximo real según stock) | automático | #17 | ✅ |
