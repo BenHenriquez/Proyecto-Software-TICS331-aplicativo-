@@ -2,7 +2,7 @@
 
 Prototipo del curso TICS331 (equipo BBMVV). En el Sprint 1 una vecina busca un medicamento por nombre o principio activo, ve su precio y disponibilidad y genera un pedido. Todo funciona con **datos sintéticos**.
 
-> Estado actual: **esqueleto**. `GET /api/health` responde; el resto de los endpoints responde `501` hasta que se implementen las historias US-02 (#1), US-13 (#2) y US-15 (#3).
+> Estado actual (Sprint 1, en construcción): funcionan `GET /api/health`, `POST /api/pedidos` (compra atómica, US-15) y `PUT /api/backoffice/medicamentos/:codigo` (actualizar precio y stock, US-13). Siguen respondiendo `501` la búsqueda (`GET /api/medicamentos`, US-02) y el listado del backoffice (`GET /api/backoffice/medicamentos`). En el front, el selector de cantidad (`SelectorCantidad`) está construido y probado, pero aún no está conectado a la pantalla de búsqueda.
 
 ## Requisitos
 
@@ -23,7 +23,7 @@ Abre <http://localhost:5173>. El front hace proxy de `/api` hacia el backend; pu
 Otros comandos:
 
 ```bash
-npm test       # tests del backend (vitest + supertest), usan una base en memoria
+npm test       # tests del backend (vitest + supertest, base en memoria) y del front (vitest + Testing Library)
 npm run build  # compila el front (TypeScript + Vite)
 ```
 
@@ -54,6 +54,7 @@ backend/            Node + Express + better-sqlite3
   src/app.js        fábrica de la app (sin listen, para tests)
   src/server.js     arranque del servidor
   src/routes/       rutas HTTP
+  src/middleware/   token simulado del backoffice
   src/services/     reglas de negocio
   src/repositories/ único lugar que toca SQLite (se reemplaza por Praxsuite en el Sprint 2)
   src/db/schema.sql esquema oficial (docs/arquitectura/MODELO_DE_DATOS.md §2)
@@ -61,7 +62,9 @@ backend/            Node + Express + better-sqlite3
   tests/            vitest + supertest
 frontend/           React + Vite + TypeScript
   src/pages/        "/" buscador y "/backoffice"
-docs/               ADR, modelo de datos, backlog del sprint
+  src/components/   componentes reutilizables (selector de cantidad)
+  src/lib/          utilidades (formato de pesos)
+docs/               ADR, modelo de datos, backlog del sprint y trazabilidad de la verificación (docs/sprint-1/TRAZABILIDAD.md)
 ```
 
 Decisión de arquitectura: [ADR-01](docs/adr/ADR-01-backend-sprint1.md). Esquema y API: [MODELO_DE_DATOS.md](docs/arquitectura/MODELO_DE_DATOS.md).
