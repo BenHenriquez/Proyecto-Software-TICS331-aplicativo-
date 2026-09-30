@@ -5,11 +5,13 @@ import { crearRutasPedidos } from './routes/pedidos.js';
 import { crearRutasBackoffice } from './routes/backoffice.js';
 
 // Fábrica de la app, separada del listen para poder testearla con supertest.
-// `db` se inyecta para que las historias armen sus repositories sobre ella.
-export function crearApp({ db } = {}) {
+// `db` se inyecta para que las historias armen sus repositories sobre ella, y
+// `tokenBackoffice` (simulado, ver README) para que los tests no dependan del .env.
+export function crearApp({ db, tokenBackoffice = '' } = {}) {
   const app = express();
   app.use(express.json());
   app.locals.db = db;
+  app.locals.tokenBackoffice = tokenBackoffice;
 
   app.use('/api', crearRutasHealth());
   app.use('/api', crearRutasMedicamentos());
@@ -21,6 +23,17 @@ export function crearApp({ db } = {}) {
   });
 
   app.use((err, _req, res, _next) => {
+    // Un JSON mal formado, un cuerpo demasiado grande o una dirección inválida son errores de
+    // quien envía (4xx), no del servidor.
+    if (Number.isInteger(err.status) && err.status >= 400 && err.status < 500) {
+      return res.status(err.status).json({
+        motivo: 'solicitud_invalida',
+        mensaje:
+          err.status === 413
+            ? 'Lo que enviaste es demasiado grande. Envía menos datos e inténtalo de nuevo.'
+            : 'No pudimos leer lo que enviaste. Revisa los datos e inténtalo de nuevo.',
+      });
+    }
     console.error(err);
     res.status(500).json({
       motivo: 'error_interno',

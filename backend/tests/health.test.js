@@ -18,7 +18,6 @@ describe('endpoints del Sprint 1 aún como esqueleto', () => {
   it.each([
     ['get', '/api/medicamentos?q=losartan'],
     ['get', '/api/backoffice/medicamentos'],
-    ['put', '/api/backoffice/medicamentos/MED-001'],
   ])('%s %s responde 501 con mensaje en español', async (metodo, ruta) => {
     const res = await request(app)[metodo](ruta);
     expect(res.status).toBe(501);
