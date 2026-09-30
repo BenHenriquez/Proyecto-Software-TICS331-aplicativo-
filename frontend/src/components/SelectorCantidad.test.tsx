@@ -128,6 +128,8 @@ describe('SelectorCantidad', () => {
       ['cero', '0'],
       ['mayor que el máximo', '25'],
       ['decimal', '1.5'],
+      ['negativa', '-2'],
+      ['en notación científica', '1e1'],
     ])('con una cantidad %s avisa y no deja continuar', async (_caso, texto) => {
       const { usuario, campo, continuar, onContinuar } = mostrar();
 
@@ -197,6 +199,28 @@ describe('SelectorCantidad', () => {
     });
   });
 
+  describe('al cambiar de medicamento', () => {
+    it('la cantidad vuelve a 1 y no arrastra la del medicamento anterior', async () => {
+      const usuario = userEvent.setup();
+      const { rerender } = render(<SelectorCantidad medicamento={amlodipino} onContinuar={vi.fn()} />);
+
+      await usuario.click(screen.getByRole('button', { name: 'Aumentar cantidad' }));
+      await usuario.click(screen.getByRole('button', { name: 'Aumentar cantidad' }));
+      expect((screen.getByRole('spinbutton', { name: 'Cantidad' }) as HTMLInputElement).value).toBe('3');
+
+      rerender(
+        <SelectorCantidad
+          medicamento={{ codigo: 'MED-004', nombre: 'Enalapril 10 mg', precioUnitario: 990, stock: 60 }}
+          onContinuar={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText('Enalapril 10 mg')).toBeTruthy();
+      expect((screen.getByRole('spinbutton', { name: 'Cantidad' }) as HTMLInputElement).value).toBe('1');
+      expect(screen.getByText('Total: $990')).toBeTruthy();
+    });
+  });
+
   describe('estado sin stock', () => {
     it('informa «Sin stock» y no ofrece selector ni compra', () => {
       mostrar({ ...amlodipino, stock: 0 });
@@ -249,12 +273,15 @@ describe('SelectorCantidad', () => {
   });
 
   describe('accesibilidad', () => {
-    it('el total se anuncia a lectores de pantalla sin interrumpir', () => {
-      mostrar();
+    it('el total es una región en vivo: se anuncia a lectores de pantalla sin interrumpir', async () => {
+      const { usuario, mas } = mostrar();
 
-      const total = screen.getByText('Total: $1.490');
-      expect(total.tagName).toBe('OUTPUT');
-      expect(total.getAttribute('aria-live')).toBe('polite');
+      const region = screen.getByRole('status');
+      expect(region.getAttribute('aria-live')).toBe('polite');
+      expect(region.textContent).toBe('Total: $1.490');
+
+      await usuario.click(mas());
+      expect(screen.getByRole('status').textContent).toBe('Total: $2.980');
     });
 
     it('aclara que el total definitivo lo confirma la farmacia', () => {

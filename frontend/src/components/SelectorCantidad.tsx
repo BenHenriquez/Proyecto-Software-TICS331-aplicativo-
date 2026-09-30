@@ -27,7 +27,7 @@ function leerCantidad(texto: string, maximo: number): number | null {
   return cantidad >= 1 && cantidad <= maximo ? cantidad : null;
 }
 
-export default function SelectorCantidad({ medicamento, onContinuar }: Props) {
+function SelectorDeCantidad({ medicamento, onContinuar }: Props) {
   const { nombre, precioUnitario, stock } = medicamento;
   const idCampo = useId();
   const idAyuda = useId();
@@ -127,4 +127,9 @@ export default function SelectorCantidad({ medicamento, onContinuar }: Props) {
       </button>
     </section>
   );
+}
+
+// La `key` por código reinicia la cantidad cuando el padre reutiliza el componente con otro medicamento.
+export default function SelectorCantidad(props: Props) {
+  return <SelectorDeCantidad key={props.medicamento.codigo} {...props} />;
 }
