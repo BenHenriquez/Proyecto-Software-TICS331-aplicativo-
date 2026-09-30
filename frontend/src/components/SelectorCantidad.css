@@ -50,7 +50,9 @@
 
 .selector__campo {
   width: 6.5rem;
+  height: 64px; /* igual que los botones «−» y «+» */
   min-height: 64px;
+  padding-block: 0;
   text-align: center;
   font-size: 1.6rem;
   font-weight: 700;
