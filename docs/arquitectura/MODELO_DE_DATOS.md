@@ -68,6 +68,13 @@ Cada resultado de búsqueda devuelve: `codigo, nombre, principioActivo, presenta
 
 Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para la vecina. Ejemplo: `"Este medicamento ya no tiene stock disponible."`
 
+**Detalle del `GET /api/medicamentos?q=` (#7):**
+
+- `q` se normaliza igual que la columna `busqueda` (minúsculas, sin tildes, espacios juntados). Debe quedar con al menos 2 caracteres; si no, `400 { motivo: "busqueda_muy_corta", mensaje }`. Si `q` viene repetido o tiene más de 100 caracteres: `400 { motivo: "busqueda_invalida", mensaje }`.
+- Coincidencia parcial por palabra: cada palabra de `q` debe aparecer en `busqueda` (nombre + principio activo), en cualquier orden. `%` y `_` se buscan como letras, no como comodines.
+- Solo aparecen medicamentos con `activo = 1`, ordenados por `busqueda`. Los que tienen stock 0 **sí** aparecen, con `disponible: false`.
+- Sin coincidencias: `200 { resultados: [], mensaje: "No encontramos ese medicamento…" }`.
+
 **Detalle del `PUT /api/backoffice/medicamentos/:codigo` (#11):**
 
 - Requiere el header `x-backoffice-token` (token simulado). Si falta, es incorrecto, o el servidor no tiene token configurado: `401 { motivo: "no_autorizado", mensaje }`. La autorización se revisa antes que los datos (un JSON mal formado se rechaza antes, con `400`).

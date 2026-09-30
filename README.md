@@ -2,7 +2,7 @@
 
 Prototipo del curso TICS331 (equipo BBMVV). En el Sprint 1 una vecina busca un medicamento por nombre o principio activo, ve su precio y disponibilidad y genera un pedido. Todo funciona con **datos sintéticos**.
 
-> Estado actual (Sprint 1, en construcción): funcionan `GET /api/health`, `POST /api/pedidos` (compra atómica, US-15) y `PUT /api/backoffice/medicamentos/:codigo` (actualizar precio y stock, US-13). Siguen respondiendo `501` la búsqueda (`GET /api/medicamentos`, US-02) y el listado del backoffice (`GET /api/backoffice/medicamentos`). En el front, el selector de cantidad (`SelectorCantidad`) está construido y probado, pero aún no está conectado a la pantalla de búsqueda.
+> Estado actual (Sprint 1, en construcción): funcionan `GET /api/health`, `GET /api/medicamentos?q=` (búsqueda por nombre o principio activo, US-02), `POST /api/pedidos` (compra atómica, US-15) y `PUT /api/backoffice/medicamentos/:codigo` (actualizar precio y stock, US-13). Sigue respondiendo `501` el listado del backoffice (`GET /api/backoffice/medicamentos`). En el front, el selector de cantidad (`SelectorCantidad`) está construido y probado, pero aún no está conectado a la pantalla de búsqueda.
 
 ## Requisitos
 
