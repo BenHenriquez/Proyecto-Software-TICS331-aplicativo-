@@ -42,6 +42,23 @@ Leyenda de estado: ✅ comprobado · ⏳ pendiente · ➡️ lo cubre otra tarea
 | 8 | `PUT` a MED-999 | 404 | ✅ 404 `no_existe` |
 | 9 | `PUT` con JSON roto | 400 (no 500) | ✅ 400 `solicitud_invalida` |
 
+### Repetición en clon limpio con el código final (2026-09-30)
+
+Clon de `origin/dev` (commit `63d4056`) siguiendo el README: `npm ci`, `cp .env.example .env`, `npm run seed` (34 medicamentos), `npm test` (85 tests del backend y 30 del front, todos verdes), `npm run build` y `npm run dev`. Se repitieron las llamadas de arriba con los topes y los errores 4xx ya corregidos:
+
+| Llamada | Resultado |
+|---|---|
+| `GET /api/health` por `:5173` | 200 `{ ok: true }` |
+| Sin token / token incorrecto | 401 `no_autorizado` |
+| Feliz: `precioUnitario: 2100` | 200, version 1 |
+| Error: `stock: -5` · `precioUnitario: "abc"` · `precioUnitario: 1e308` | 400 `datos_invalidos`, con el motivo de cada campo |
+| Cambio válido de stock a 118 | 200, precio 2100 intacto, version 2 (los rechazos no subieron la version) |
+| Compra de 2 unidades por la vecina | 201, total 4200 = 2 × 2100 |
+| MED-999 inexistente | 404 `no_existe` |
+| JSON roto | 400 `solicitud_invalida` |
+| Cuerpo de 200 KB | 413 `solicitud_invalida`, sin cambios en la base |
+| Estado final de MED-001 en la base | precio 2100, stock 116 (118 − 2 de la compra), version 3 |
+
 ## 2b. Selector de cantidad en navegador real (2026-09-30)
 
 Componente montado temporalmente en la página de búsqueda (sin commitear) y probado con Chromium (Playwright). Capturas locales: estado normal, cantidad inválida y zoom 200 %.
@@ -124,5 +141,5 @@ Cuando #12 agregue `AND version = ?` al `UPDATE`, `changes === 0` ya no signific
 
 ## 6. Pendiente de completar
 
-- A3 antes del PR a `main` y verificación en clon limpio de `dev`.
+- ~~A3 antes del PR a `main` y verificación en clon limpio de `dev`~~: hechos (A3 con el advisor Opus y clon limpio de `origin/dev` el 2026-09-30).
 - **El selector todavía no está montado en ninguna pantalla.** El componente está completo y probado, pero #17 pide el selector «desde el resultado de búsqueda», que depende de #8 (pantalla de búsqueda) y de #18 (confirmación). Por eso el PR debe usar `Refs #17` y **no** `Closes #17`: la tarjeta #17 no pasa a Done hasta conectarlo y ejecutar el escenario en vivo. #11 sí puede cerrarse, salvo la parte «aparece en la búsqueda», que se verifica en #14.
