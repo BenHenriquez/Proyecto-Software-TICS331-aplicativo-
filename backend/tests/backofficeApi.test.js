@@ -89,6 +89,16 @@ describe('PUT /api/backoffice/medicamentos/:codigo', () => {
       expect(fila().stock).toBe(0);
     });
 
+    it('acepta justo los topes (precio 10.000.000, stock 1.000.000) y los guarda como enteros', async () => {
+      const res = await actualizar({ precioUnitario: 10_000_000, stock: 1_000_000 });
+
+      expect(res.status).toBe(200);
+      const tipos = db
+        .prepare('SELECT typeof(precio_unitario) AS precio, typeof(stock) AS stock FROM medicamentos WHERE codigo = ?')
+        .get(CODIGO);
+      expect(tipos).toEqual({ precio: 'integer', stock: 'integer' });
+    });
+
     it('actualiza precio y stock juntos con un solo aumento de version', async () => {
       const res = await actualizar({ precioUnitario: 2100, stock: 10 });
 
@@ -175,6 +185,12 @@ describe('PUT /api/backoffice/medicamentos/:codigo', () => {
       ['stock', 'texto', 'abc'],
       ['stock', 'texto numérico', '5'],
       ['stock', 'nulo', null],
+      ['stock', 'sobre el tope de un millón', 1_000_001],
+      ['stock', 'enorme', 1e300],
+      ['stock', 'fuera del rango de enteros seguros', 2 ** 53],
+      ['precioUnitario', 'sobre el tope de diez millones', 10_000_001],
+      ['precioUnitario', 'enorme', 1e308],
+      ['precioUnitario', 'fuera del rango de enteros seguros', 2 ** 53],
       ['precioUnitario', 'cero', 0],
       ['precioUnitario', 'negativo', -5],
       ['precioUnitario', 'decimal', 1.5],

@@ -1,16 +1,20 @@
 // US-13 Mantener stock (#2). Valida todo ANTES de guardar: si algún valor es inválido no se
 // modifica nada y se informa el motivo de cada campo. Los mensajes son para la funcionaria.
+// Topes razonables: sin ellos, un valor gigante (1e308) se guardaría como decimal y rompería los totales.
+export const PRECIO_MAXIMO = 10_000_000;
+export const STOCK_MAXIMO = 1_000_000;
+
 const MENSAJES = {
-  precioUnitario: 'El precio debe ser un número entero mayor que cero.',
-  stock: 'El stock debe ser un número entero, cero o mayor.',
+  precioUnitario: 'El precio debe ser un número entero mayor que cero y de hasta diez millones.',
+  stock: 'El stock debe ser un número entero, desde cero y de hasta un millón.',
   general: 'Indica el precio o el stock que quieres cambiar.',
   datos_invalidos: 'No guardamos ningún cambio. Revisa los datos marcados e inténtalo de nuevo.',
   no_existe: 'No encontramos ese medicamento. Vuelve a buscarlo, por favor.',
 };
 
 const tiene = (cuerpo, campo) => Object.hasOwn(cuerpo, campo);
-const esEnteroMayorQueCero = (valor) => Number.isInteger(valor) && valor > 0;
-const esEnteroNoNegativo = (valor) => Number.isInteger(valor) && valor >= 0;
+const esPrecioValido = (valor) => Number.isSafeInteger(valor) && valor > 0 && valor <= PRECIO_MAXIMO;
+const esStockValido = (valor) => Number.isSafeInteger(valor) && valor >= 0 && valor <= STOCK_MAXIMO;
 
 function aVista(fila) {
   return {
@@ -36,10 +40,10 @@ export function crearBackofficeService(medicamentosRepository) {
       if (!tiene(datos, 'precioUnitario') && !tiene(datos, 'stock')) {
         errores.general = MENSAJES.general;
       }
-      if (tiene(datos, 'precioUnitario') && !esEnteroMayorQueCero(datos.precioUnitario)) {
+      if (tiene(datos, 'precioUnitario') && !esPrecioValido(datos.precioUnitario)) {
         errores.precioUnitario = MENSAJES.precioUnitario;
       }
-      if (tiene(datos, 'stock') && !esEnteroNoNegativo(datos.stock)) {
+      if (tiene(datos, 'stock') && !esStockValido(datos.stock)) {
         errores.stock = MENSAJES.stock;
       }
       if (Object.keys(errores).length > 0) {
