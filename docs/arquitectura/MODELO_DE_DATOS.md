@@ -62,7 +62,7 @@ Semilla: `backend/seed/medicamentos_semilla.csv`, 34 filas. Sin stock: MED-014, 
 | `GET /api/medicamentos?q=` | US-02 | `q` con al menos 2 letras | `200 { resultados: [...] }` · si la lista está vacía agrega `mensaje: "No encontramos ese medicamento…"` · `400` si `q` es muy corto |
 | `POST /api/pedidos` | US-15 | `{ codigo, cantidad, alias? }` | `201 { pedido }` · `404 no_existe` · `400 cantidad_invalida` · `409 sin_stock` |
 | `GET /api/backoffice/medicamentos` | US-13 | header `x-backoffice-token` | `200 { medicamentos: [...] }` · `401` |
-| `PUT /api/backoffice/medicamentos/:codigo` | US-13 | `{ precioUnitario?, stock?, version }` + header | `200 { medicamento }` · `400 { motivo, mensaje, errores: { campo: motivo } }` · `401 { motivo, mensaje }` · `404 no_existe` · `409` si la versión cambió (lo agrega #12) |
+| `PUT /api/backoffice/medicamentos/:codigo` | US-13 | `{ precioUnitario?, stock?, version? }` + header (`version` pasa a ser obligatoria con #12) | `200 { medicamento }` · `400 { motivo, mensaje, errores: { campo: motivo } }` · `401 { motivo, mensaje }` · `404 no_existe` · `409` si la versión cambió (lo agrega #12) |
 
 Cada resultado de búsqueda devuelve: `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible`. El pedido devuelve: `numeroPedido, medicamento, cantidad, precioUnitario, total, estado, fechaCreacion`.
 
@@ -70,12 +70,12 @@ Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para 
 
 **Detalle del `PUT /api/backoffice/medicamentos/:codigo` (#11):**
 
-- Requiere el header `x-backoffice-token` (token simulado). Si falta, es incorrecto, o el servidor no tiene token configurado: `401 { motivo: "no_autorizado", mensaje }`. La autorización se revisa antes que los datos.
-- Se editan solo `precioUnitario` y `stock`; cualquier otro campo se ignora, incluido `version`: por ahora no se exige, y #12 la exigirá según §5. Debe venir al menos uno. Ambos deben ser números JSON **enteros** (no texto): `precioUnitario` mayor que cero y `stock` cero o mayor.
+- Requiere el header `x-backoffice-token` (token simulado). Si falta, es incorrecto, o el servidor no tiene token configurado: `401 { motivo: "no_autorizado", mensaje }`. La autorización se revisa antes que los datos (un JSON mal formado se rechaza antes, con `400`).
+- Se editan solo `precioUnitario` y `stock`; cualquier otro campo se ignora, incluido `version`: por ahora no se exige, y #12 la exigirá según §5. Debe venir al menos uno. Ambos deben ser números JSON **enteros** (no texto): `precioUnitario` mayor que cero y hasta 10.000.000, y `stock` desde cero y hasta 1.000.000 (valores mayores se rechazan para no guardar números que rompan los totales).
 - Si algún valor es inválido no se guarda nada y responde `400 { motivo: "datos_invalidos", mensaje, errores }`, con un motivo por campo (`errores.precioUnitario`, `errores.stock`, o `errores.general` si no vino ninguno).
 - Si el código no existe: `404 { motivo: "no_existe", mensaje }`.
 - Un cambio válido sube `version` en 1 y responde `200 { medicamento }` con `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible, version`.
-- Un JSON mal formado en cualquier endpoint responde `400 { motivo: "solicitud_invalida", mensaje }`.
+- En cualquier endpoint, un error del cliente que detecta el servidor responde `{ motivo: "solicitud_invalida", mensaje }` con su código: `400` (JSON mal formado o dirección mal codificada), `413` (cuerpo demasiado grande) o `415` (codificación de caracteres no soportada). Un fallo interno real responde `500 { motivo: "error_interno", mensaje }`.
 
 ## 4. Concurrencia (compra)
 

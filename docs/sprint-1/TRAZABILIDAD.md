@@ -11,7 +11,7 @@ Leyenda de estado: ✅ comprobado · ⏳ pendiente · ➡️ lo cubre otra tarea
 |---|---|---|---|---|
 | US-13 feliz: el cambio se guarda (Gherkin del issue #2) | `backend/tests/backofficeApi.test.js` → «escenario feliz: el cambio queda guardado» | automático | #11 | ✅ |
 | US-13 feliz: aparece de inmediato para la vecina | mismo archivo → «el cambio se ve de inmediato en lo que consulta la vecina» (vía `POST /api/pedidos`, que lee precio y stock en vivo). **La búsqueda (#7) aún no existe**: se cubre en #14 | automático parcial | #11 → #14 | ✅ vía compra · ➡️ búsqueda en #14 |
-| US-13 error: rechaza, informa el motivo y mantiene el valor anterior | mismo archivo → «escenario de error: valor inválido…» (12 valores inválidos, campo válido + inválido, cuerpo vacío, sin cuerpo) | automático | #11 | ✅ |
+| US-13 error: rechaza, informa el motivo y mantiene el valor anterior | mismo archivo → «escenario de error: valor inválido…» (18 valores inválidos, incluidos enormes y sobre los topes; campo válido + inválido, cuerpo vacío, sin cuerpo; topes exactos aceptados y guardados como enteros) | automático | #11 | ✅ |
 | Regla 3: el stock nunca queda negativo | casos `stock` `-1` y decimal + CHECK de la tabla | automático | #11 | ✅ |
 | Regla 5: token simulado desde `.env`, declarado en el README | «token simulado del backoffice» (401 sin token / incorrecto / vacío / servidor sin token; 401 antes que 400 y 404) + README | automático | #11 | ✅ |
 | Regla 6: mensajes en español simple, sin códigos | «los mensajes son texto simple en español…» | automático | #11 | ✅ |
@@ -75,6 +75,10 @@ Se rompió el código a propósito y se comprobó que al menos un test se pone r
 | M7 el stock acepta decimales | 1 |
 | M8 no se revisa el token | 4 |
 | M9 el `UPDATE` sin `WHERE` (pisa todo el catálogo) | 1 (detectada tras agregar el test de aislamiento; antes pasaba en verde) |
+| N1 se usa `isInteger` en vez de `isSafeInteger` en el precio | 3 |
+| N2 el stock no tiene tope | 1 |
+| N3 el tope de precio permite un peso más | 1 |
+| N4 los errores 4xx del cliente vuelven a caer en 500 | 3 |
 
 Hallazgo: los primeros tests no detectaban M9. Se agregó «solo modifica el medicamento indicado…» y se repitió la mutación.
 
@@ -99,12 +103,26 @@ Mutaciones del selector de cantidad (#17):
 | A2 — implementación de #11 | ¿Fuera de alcance, regresiones, secretos, tests débiles? | Faltaba detectar un `UPDATE` sin `WHERE` (M9): corregido. Se alineó el modelo de datos sobre `version` y el ejemplo del README para PowerShell |
 | A1 — tests de #17 antes del componente | ¿Escenarios sin test? ¿Tests que no pueden fallar? | El caso de «1.5» podía pasar por el motivo equivocado (jsdom vacía el campo): se asigna el valor completo y se comprueba. Se agregó que los botones solo aparecen bloqueados en los límites. Las flechas del teclado y las medidas se comprobaron en navegador real (sección 2b) |
 
+### Revisión con contexto limpio (G5)
+
+Un subagente con Opus, que solo vio el diff y los criterios (no la conversación), revisó `dev` contra `main`. Cada hallazgo se verificó antes de actuar:
+
+| Hallazgo | Verificado | Qué se hizo |
+|---|---|---|
+| Un precio `1e308` o un stock sobre el rango seguro se aceptaba (200), se guardaba como decimal y la compra devolvía `total: null` | Sí: reproducido | Tope de precio (10.000.000) y de stock (1.000.000) con `isSafeInteger`; 6 casos nuevos y los topes exactos comprobados; mutaciones N1–N3 |
+| Cuerpo grande, dirección mal codificada o codificación no soportada respondían 500 | Sí: reproducido | El manejador de errores traduce cualquier 4xx del cliente (413, 415, 400); mutación N4 |
+| El modelo de datos decía «la autorización va antes que los datos», pero un JSON roto sin token da 400 | Sí | Se precisó en `MODELO_DE_DATOS.md` |
+| La tabla de `MODELO_DE_DATOS.md` seguía con `version` obligatoria | Sí | `version?` y nota de que la exige #12 |
+| El selector no se reiniciaba al cambiar de medicamento | Sí: test en rojo antes del arreglo | `key` por código |
+| Un test del selector comprobaba la etiqueta HTML y no el comportamiento | Sí | Ahora prueba la región en vivo (`role="status"`, `aria-live`) y su texto |
+| El selector no está montado en ninguna pantalla | Sí: depende de #8 | Ver la nota de la sección 6 |
+| Comparación del token con `===`, `CANTIDAD_MAXIMA` duplicada en front y back, el `PUT` edita medicamentos inactivos | Sí | Se aceptan como deuda conocida del prototipo (token simulado; máximo espejo comentado; inactivos irrelevantes en el Sprint 1) |
+
 ## 5. Nota para #12 (Vicenlol09)
 
 Cuando #12 agregue `AND version = ?` al `UPDATE`, `changes === 0` ya no significará solo «no existe»: también será «la versión cambió» (409). Hay que distinguir ambos casos dentro de la misma transacción para no devolver 404 por un conflicto de versión.
 
 ## 6. Pendiente de completar
 
-- Revisión con contexto limpio (G5) y A3 antes del PR a `main`.
-- Verificación en clon limpio de `dev`.
-- Conectar el selector a la búsqueda (#8) y a la confirmación (#18).
+- A3 antes del PR a `main` y verificación en clon limpio de `dev`.
+- **El selector todavía no está montado en ninguna pantalla.** El componente está completo y probado, pero #17 pide el selector «desde el resultado de búsqueda», que depende de #8 (pantalla de búsqueda) y de #18 (confirmación). Por eso el PR debe usar `Refs #17` y **no** `Closes #17`: la tarjeta #17 no pasa a Done hasta conectarlo y ejecutar el escenario en vivo. #11 sí puede cerrarse, salvo la parte «aparece en la búsqueda», que se verifica en #14.
