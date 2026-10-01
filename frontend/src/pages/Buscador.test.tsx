@@ -243,6 +243,30 @@ describe('Buscador', () => {
       expect(within(zona).getByText('$3.980')).toBeTruthy(); // total estimado: 2 × $1.990
       expect(posts()).toHaveLength(0); // nada se compra hasta confirmar
       expect(screen.queryByText(/muy pronto/)).toBeNull();
+      // El selector desaparece: no conviven dos totales ni dos «Continuar»
+      expect(screen.queryByRole('spinbutton')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Continuar con el pedido' })).toBeNull();
+    });
+
+    it('mientras se confirma, el buscador no se mueve: una búsqueda nueva no hace perder el pedido', async () => {
+      let terminar!: (r: Response) => void;
+      simular({ pedido: () => new Promise<Response>((r) => (terminar = r)) });
+      const { usuario, buscar, campo } = mostrar();
+      await llegarAlResumen(usuario, buscar);
+      await usuario.click(screen.getByRole('button', { name: /Confirmar pedido/ }));
+      const antes = busquedasHechas().length;
+
+      await usuario.type(campo(), '{Enter}');
+      await usuario.click(screen.getByRole('button', { name: 'Buscar' }));
+
+      expect(busquedasHechas()).toHaveLength(antes); // no se pidió ninguna búsqueda
+      expect(screen.getByRole('region', { name: 'Confirmar pedido de Losartán 50 mg' })).toBeTruthy();
+      terminar(new Response(JSON.stringify({ pedido }), { status: 201, headers: { 'Content-Type': 'application/json' } }));
+      expect(await screen.findByRole('heading', { name: 'Tu pedido fue creado' })).toBeTruthy();
+
+      // Terminada la confirmación, buscar vuelve a funcionar
+      await buscar('Losartán');
+      expect(await screen.findByRole('article', { name: 'Losartán 50 mg' })).toBeTruthy();
     });
 
     it('escenario feliz: confirma y ve el pedido con número, total y estado; envía solo código y cantidad', async () => {
@@ -255,6 +279,7 @@ describe('Buscador', () => {
       await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
       expect(posts()).toHaveLength(1);
       expect(JSON.parse(String(posts()[0][1].body))).toEqual({ codigo: 'MED-001', cantidad: 2 });
+      expect(new Headers(posts()[0][1].headers).get('Content-Type')).toMatch(/application\/json/);
       expect(screen.getByText('P-7KQ4ZD')).toBeTruthy();
       expect(screen.getByText('Solicitud creada')).toBeTruthy();
       expect(screen.getAllByText('$3.980').length).toBeGreaterThan(0);
@@ -297,7 +322,7 @@ describe('Buscador', () => {
       expect(busquedasHechas()).toHaveLength(2);
     });
 
-    it('«Cambiar cantidad» vuelve al selector del mismo medicamento sin comprar nada', async () => {
+    it('«Cambiar cantidad» en el resumen vuelve al selector del mismo medicamento sin comprar nada', async () => {
       simular();
       const { usuario, buscar } = mostrar();
       await llegarAlResumen(usuario, buscar);
@@ -331,7 +356,10 @@ describe('Buscador', () => {
       await usuario.tab(); // «Buscar»
       await usuario.tab(); // «Elegir cantidad»
       await usuario.keyboard('{Enter}');
-      screen.getByRole('button', { name: 'Continuar con el pedido' }).focus();
+      // Tab por «Volver», «−», el campo y «+» hasta «Continuar con el pedido»
+      const continuar = screen.getByRole('button', { name: 'Continuar con el pedido' });
+      for (let i = 0; i < 6 && document.activeElement !== continuar; i++) await usuario.tab();
+      expect(document.activeElement).toBe(continuar);
       await usuario.keyboard('{Enter}');
 
       const zona = screen.getByRole('region', { name: 'Confirmar pedido de Losartán 50 mg' });

@@ -37,6 +37,7 @@ function mostrar(cantidad = 2, medicamento = losartan100) {
     onCambiarCantidad: vi.fn(),
     onVolverAResultados: vi.fn(),
     onNuevaBusqueda: vi.fn(),
+    onOcupado: vi.fn(),
   };
   const usuario = userEvent.setup();
   render(<ConfirmarPedido medicamento={medicamento} cantidad={cantidad} {...props} />);
@@ -49,6 +50,9 @@ function mostrar(cantidad = 2, medicamento = losartan100) {
 }
 
 const cuerpoDelPost = () => JSON.parse(String(fetchFalso.mock.calls[0][1].body));
+// Cada dato va en su fila (dt/dd): se busca el valor dentro de la fila de su etiqueta.
+const fila = (etiqueta: string) => within(screen.getByText(etiqueta).closest('div') as HTMLElement);
+const botones = (zona: HTMLElement) => within(zona).getAllByRole('button').map((b) => b.textContent?.trim());
 
 describe('ConfirmarPedido', () => {
   describe('resumen del pedido antes de confirmar', () => {
@@ -56,19 +60,19 @@ describe('ConfirmarPedido', () => {
       mostrar(2);
 
       expect(screen.getByRole('heading', { name: 'Revisa tu pedido' })).toBeTruthy();
-      expect(screen.getByText('Losartán 100 mg')).toBeTruthy();
-      expect(screen.getByText('2 unidades')).toBeTruthy();
-      expect(screen.getByText('$2.890')).toBeTruthy();
-      expect(screen.getByText('$5.780')).toBeTruthy();
+      expect(fila('Medicamento').getByText('Losartán 100 mg')).toBeTruthy();
+      expect(fila('Cantidad').getByText('2 unidades')).toBeTruthy();
+      expect(fila('Precio por unidad').getByText('$2.890')).toBeTruthy();
+      expect(fila('Total estimado').getByText('$5.780')).toBeTruthy();
       expect(screen.getByText(/El total final lo confirma la farmacia/)).toBeTruthy();
       expect(fetchFalso).not.toHaveBeenCalled();
     });
 
-    it('con una sola unidad lo dice en singular', () => {
+    it('con una sola unidad lo dice en singular y el total es el precio de una unidad', () => {
       mostrar(1);
 
-      expect(screen.getByText('1 unidad')).toBeTruthy();
-      expect(screen.getAllByText('$2.890')).toHaveLength(2); // precio por unidad y total estimado
+      expect(fila('Cantidad').getByText('1 unidad')).toBeTruthy();
+      expect(fila('Total estimado').getByText('$2.890')).toBeTruthy();
     });
 
     it('ofrece confirmar y cambiar la cantidad', async () => {
@@ -94,6 +98,8 @@ describe('ConfirmarPedido', () => {
       expect(fetchFalso.mock.calls[0][0]).toBe('/api/pedidos');
       expect(fetchFalso.mock.calls[0][1].method).toBe('POST');
       expect(cuerpoDelPost()).toEqual({ codigo: 'MED-002', cantidad: 2 });
+      // Sin esta cabecera el backend no lee el cuerpo y respondería que la cantidad no es válida
+      expect(new Headers(fetchFalso.mock.calls[0][1].headers).get('Content-Type')).toMatch(/application\/json/);
     });
 
     it('muestra el número de pedido, el medicamento, la cantidad, el total y el estado «Solicitud creada»', async () => {
@@ -103,12 +109,12 @@ describe('ConfirmarPedido', () => {
       await usuario.click(confirmar());
 
       await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
-      const datos = within(zona());
-      expect(datos.getByText('P-7KQ4ZD')).toBeTruthy();
-      expect(datos.getByText('Losartán 100 mg')).toBeTruthy();
-      expect(datos.getByText('2 unidades')).toBeTruthy();
-      expect(datos.getByText('$5.780')).toBeTruthy();
-      expect(datos.getByText('Solicitud creada')).toBeTruthy();
+      expect(zona()).toBeTruthy();
+      expect(fila('Número de pedido').getByText('P-7KQ4ZD')).toBeTruthy();
+      expect(fila('Medicamento').getByText('Losartán 100 mg')).toBeTruthy();
+      expect(fila('Cantidad').getByText('2 unidades')).toBeTruthy();
+      expect(fila('Total').getByText('$5.780')).toBeTruthy();
+      expect(fila('Estado').getByText('Solicitud creada')).toBeTruthy();
     });
 
     it('el total y el precio que se muestran son los que calculó el backend, no el estimado', async () => {
@@ -119,8 +125,8 @@ describe('ConfirmarPedido', () => {
       await usuario.click(confirmar());
 
       await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
-      expect(within(zona()).getByText('$6.000')).toBeTruthy();
-      expect(within(zona()).getByText('$3.000')).toBeTruthy();
+      expect(fila('Total').getByText('$6.000')).toBeTruthy();
+      expect(fila('Precio por unidad').getByText('$3.000')).toBeTruthy();
       expect(within(zona()).queryByText('$5.780')).toBeNull();
     });
 
@@ -190,41 +196,49 @@ describe('ConfirmarPedido', () => {
       expect((await screen.findByRole('alert')).textContent).toContain(mensaje);
     });
 
-    it('ofrece cambiar la cantidad o volver a los resultados, que se refrescan para no mostrar stock viejo', async () => {
+    it('tras el rechazo solo ofrece volver a los resultados, que se refrescan para no mostrar stock viejo', async () => {
       fetchFalso.mockReturnValue(responder(409, { motivo: 'sin_stock', mensaje: SIN_STOCK }));
-      const { usuario, confirmar, onCambiarCantidad, onVolverAResultados } = mostrar(2);
+      const { usuario, confirmar, zona, onVolverAResultados, onCambiarCantidad } = mostrar(2);
       await usuario.click(confirmar());
       await screen.findByRole('alert');
 
+      // Nada de confirmar de nuevo ni de cambiar la cantidad con el stock que ya quedó viejo
+      expect(botones(zona())).toEqual(['Volver a los resultados']);
+      expect(fetchFalso).toHaveBeenCalledOnce();
+
       await usuario.click(screen.getByRole('button', { name: 'Volver a los resultados' }));
       expect(onVolverAResultados).toHaveBeenCalledWith(true);
-
-      await usuario.click(screen.getByRole('button', { name: 'Cambiar cantidad' }));
-      expect(onCambiarCantidad).toHaveBeenCalledOnce();
+      expect(onCambiarCantidad).not.toHaveBeenCalled();
     });
 
     it.each([
       ['el medicamento ya no existe', 404, 'no_existe', 'No encontramos ese medicamento. Vuelve a buscarlo, por favor.'],
       ['la cantidad no es válida', 400, 'cantidad_invalida', 'Elige una cantidad entre 1 y 20 unidades.'],
-    ])('si %s, muestra el mensaje del sistema y no crea el pedido', async (_caso, status, motivo, mensaje) => {
+    ])('si %s, muestra el mensaje del sistema, no crea el pedido y deja volver a los resultados', async (_caso, status, motivo, mensaje) => {
       fetchFalso.mockReturnValue(responder(status, { motivo, mensaje }));
-      const { usuario, confirmar } = mostrar(2);
+      const { usuario, confirmar, zona, onVolverAResultados } = mostrar(2);
 
       await usuario.click(confirmar());
 
       expect((await screen.findByRole('alert')).textContent).toContain(mensaje);
       expect(screen.queryByRole('heading', { name: 'Tu pedido fue creado' })).toBeNull();
+      expect(botones(zona())).toEqual(['Volver a los resultados']);
+      await usuario.click(screen.getByRole('button', { name: 'Volver a los resultados' }));
+      expect(onVolverAResultados).toHaveBeenCalledWith(true);
     });
 
-    it('si falla la conexión, lo explica sin códigos y deja intentar de nuevo con el mismo pedido', async () => {
+    it('si falla la conexión, avisa que quizá el pedido sí se creó, sin códigos, y deja intentar de nuevo', async () => {
       fetchFalso.mockImplementationOnce(() => Promise.reject(new TypeError('Failed to fetch')));
-      const { usuario, confirmar } = mostrar(2);
+      const { usuario, confirmar, zona } = mostrar(2);
 
       await usuario.click(confirmar());
 
       const alerta = await screen.findByRole('alert');
       expect(alerta.textContent).toMatch(/conectarnos/);
+      expect(alerta.textContent).toMatch(/no sabemos si tu pedido se creó/);
+      expect(alerta.textContent).toMatch(/consulta primero en la farmacia/);
       expect(alerta.textContent).not.toMatch(/TypeError|fetch/i);
+      expect(botones(zona())).toEqual(['Intentar de nuevo', 'Cambiar cantidad']);
 
       fetchFalso.mockReturnValue(responder(201, { pedido: pedidoCreado }));
       await usuario.click(screen.getByRole('button', { name: 'Intentar de nuevo' }));
@@ -234,23 +248,83 @@ describe('ConfirmarPedido', () => {
       expect(JSON.parse(String(fetchFalso.mock.calls[1][1].body))).toEqual({ codigo: 'MED-002', cantidad: 2 });
     });
 
-    it('si el servidor falla (500), no muestra códigos ni textos técnicos', async () => {
-      fetchFalso.mockReturnValue(responder(500, { motivo: 'error_interno', mensaje: 'SQLITE_BUSY' }));
+    it('«Intentar de nuevo» también está protegido contra el doble clic: no crea dos pedidos', async () => {
+      fetchFalso.mockImplementationOnce(() => Promise.reject(new TypeError('Failed to fetch')));
       const { usuario, confirmar } = mostrar(2);
+      await usuario.click(confirmar());
+      await screen.findByRole('alert');
+
+      let terminar!: (r: Response) => void;
+      fetchFalso.mockReturnValue(new Promise<Response>((r) => (terminar = r)));
+      const reintentar = screen.getByRole('button', { name: 'Intentar de nuevo' });
+      await usuario.click(reintentar);
+      await usuario.click(reintentar);
+
+      expect(fetchFalso).toHaveBeenCalledTimes(2); // el primer intento y un solo reintento
+      terminar(new Response(JSON.stringify({ pedido: pedidoCreado }), { status: 201, headers: { 'Content-Type': 'application/json' } }));
+      await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
+    });
+
+    it('si el servidor falla (500), no muestra códigos ni textos técnicos y deja intentar de nuevo', async () => {
+      fetchFalso.mockReturnValue(responder(500, { motivo: 'error_interno', mensaje: 'SQLITE_BUSY' }));
+      const { usuario, confirmar, zona } = mostrar(2);
 
       await usuario.click(confirmar());
 
       const alerta = await screen.findByRole('alert');
       expect(alerta.textContent).toMatch(/problema/);
       expect(alerta.textContent).not.toMatch(/500|SQLITE|interno/i);
+      expect(botones(zona())).toEqual(['Intentar de nuevo', 'Cambiar cantidad']);
     });
 
-    it('después de un rechazo no se ofrece confirmar de nuevo el mismo pedido', async () => {
-      fetchFalso.mockReturnValueOnce(responder(409, { motivo: 'sin_stock', mensaje: SIN_STOCK }));
-      const { usuario, confirmar } = mostrar(2);
+    it.each([
+      ['sin pedido', { }],
+      ['con un total que no es un número', { pedido: { ...pedidoCreado, total: 'mucho' } }],
+      ['sin número de pedido', { pedido: { ...pedidoCreado, numeroPedido: undefined } }],
+    ])('un 201 %s no muestra «$NaN» ni «undefined» y NO ofrece reintentar (el pedido pudo crearse)', async (_caso, cuerpo) => {
+      fetchFalso.mockReturnValue(responder(201, cuerpo));
+      const { usuario, confirmar, zona } = mostrar(2);
+
       await usuario.click(confirmar());
-      await screen.findByRole('alert');
-      expect(screen.queryByRole('button', { name: /Confirmar pedido/ })).toBeNull();
+
+      const alerta = await screen.findByRole('alert');
+      expect(alerta.textContent).toMatch(/es posible que se haya creado/);
+      expect(alerta.textContent).toMatch(/consúltalo en la farmacia/);
+      expect(zona().textContent).not.toMatch(/NaN|undefined|mucho/);
+      expect(screen.queryByRole('heading', { name: 'Tu pedido fue creado' })).toBeNull();
+      // Reintentar crearía un segundo pedido: solo se puede salir
+      expect(botones(zona())).toEqual(['Buscar otro medicamento']);
+      expect(fetchFalso).toHaveBeenCalledOnce();
+    });
+
+    it('un 201 que no es JSON (por ejemplo, una página del proxy) se trata igual: sin reintentar', async () => {
+      fetchFalso.mockReturnValue(Promise.resolve(new Response('<html>Bad gateway</html>', { status: 201 })));
+      const { usuario, confirmar, zona } = mostrar(2);
+
+      await usuario.click(confirmar());
+
+      expect((await screen.findByRole('alert')).textContent).toMatch(/es posible que se haya creado/);
+      expect(botones(zona())).toEqual(['Buscar otro medicamento']);
+    });
+  });
+
+  describe('mientras se confirma', () => {
+    it('avisa que está ocupada (para que el buscador no se mueva) y no deja cambiar la cantidad', async () => {
+      let terminar!: (r: Response) => void;
+      fetchFalso.mockReturnValue(new Promise<Response>((r) => (terminar = r)));
+      const { usuario, confirmar, onOcupado, onCambiarCantidad } = mostrar(2);
+
+      await usuario.click(confirmar());
+
+      expect(onOcupado).toHaveBeenLastCalledWith(true);
+      const cambiar = screen.getByRole('button', { name: 'Cambiar cantidad' });
+      expect(cambiar.getAttribute('aria-disabled')).toBe('true');
+      await usuario.click(cambiar);
+      expect(onCambiarCantidad).not.toHaveBeenCalled();
+
+      terminar(new Response(JSON.stringify({ pedido: pedidoCreado }), { status: 201, headers: { 'Content-Type': 'application/json' } }));
+      await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
+      expect(onOcupado).toHaveBeenLastCalledWith(false);
     });
   });
 
