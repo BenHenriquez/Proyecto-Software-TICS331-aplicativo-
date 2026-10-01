@@ -36,7 +36,9 @@ Leyenda de estado: ✅ comprobado · ⏳ pendiente · ➡️ lo cubre otra tarea
 | El selector se conecta a la pantalla de búsqueda y a la confirmación | `frontend/src/pages/Buscador.test.tsx` → «elegir un medicamento disponible…» (búsqueda → selector → volver). La confirmación queda en #18 | automático | #8 → #18 | ✅ búsqueda · ➡️ confirmación en #18 |
 | US-13 error de punta a punta: la búsqueda sigue mostrando el valor anterior | `us13-mantener-stock.funcional.test.js` → «Escenario de error» (7 valores inválidos: stock negativo, decimal y no numérico; precio vacío, no numérico, cero y enorme) | automático | #14 | ✅ |
 | US-13 cambios mientras ocurren ventas: el cambio de precio no pisa el stock y no hay errores | mismo archivo → «Actualización a la vez que varias vecinas compran» (6 procesos con conexiones SQLite propias + el `PUT` en el mismo instante: stock 114, version 7, totales cuadran; y cambio de stock sin stock negativo ni errores) | automático (procesos reales) | #14 | ✅ |
-| US-13 una actualización con datos viejos no pisa una venta (409) | mismo archivo → test `it.skip` «una actualización con una versión vieja se rechaza con 409…». Hoy el `PUT` fija el stock sin mirar `version` y fallaría con «200 en vez de 409»; se activa con #12 | automático (contrato) | #12 → #14 | ⏳ |
+| US-13 una actualización con datos viejos no pisa una venta (409) | `us13-mantener-stock.funcional.test.js` → «una actualización con una versión vieja se rechaza con 409 y no pisa la venta» (con la búsqueda mostrando el stock real), «tras el 409 la funcionaria recarga y guarda con la versión nueva» y, con 3 procesos reales que compran, «…se rechaza con 409 y no las pisa» (stock 114, version 3) | automático (también con procesos reales) | #12, #14 | ✅ |
+| #12 el candado: 409 `version_cambiada` y mensaje de §5; no guarda nada (tampoco el precio); aplica también al cambio de solo precio; dos ediciones con la misma versión → la segunda 409; versión futura → 409 | `backend/tests/backofficeApi.test.js` → bloque «candado de version frente a ventas simultáneas (#12)» | automático | #12 | ✅ |
+| #12 `version` obligatoria: ausente, negativa, decimal, texto, nula o fuera de rango → 400 con `errores.version`; la validación va antes que el candado y que el 404; inexistente → 404 (no 409) | mismo bloque + «medicamento inexistente» | automático | #12 | ✅ |
 | Fuera de alcance del Sprint 1 (Praxsuite, WhatsApp, IA…) | revisión del diff | revisión | todas | ⏳ al abrir el PR |
 
 ## 2. Ejecución en vivo del Gherkin de US-13 (2026-09-30)
@@ -153,6 +155,18 @@ Mutaciones de las pruebas de US-13 de punta a punta (#14):
 | P4 cambiar el precio deja el stock en 0 | 2 |
 | P5 la búsqueda no refleja el stock real | 5 |
 
+Mutaciones del candado de versión (#12):
+
+| Mutación | Tests en rojo |
+|---|---|
+| V1 el `UPDATE` sin `AND version` | 7 |
+| V2 siempre 404 cuando `changes === 0` | 6 |
+| V3 siempre 409 cuando `changes === 0` | 2 |
+| V4 el candado solo se aplica cuando viene `stock` | 1 (agregado tras la revisión A1: antes pasaba en verde) |
+| V5 `version` deja de ser obligatoria | 11 |
+| V6 `version` acepta texto | 7 |
+| V7 el cambio no sube `version` | 8 |
+
 ## 4. Revisiones con IA (advisor con Opus)
 
 | Punto | Qué se consultó | Resultado |
@@ -160,6 +174,7 @@ Mutaciones de las pruebas de US-13 de punta a punta (#14):
 | A1 — tests de #11 antes de implementar | ¿Falta algún escenario del Gherkin? ¿Algún test no puede fallar? | Se quitó `version` del test de campos ignorados (es de #12), se cambió la prueba «lo que verá la búsqueda» por una real vía compra, se eliminó un test que no podía fallar y se agregó «401 antes que 400/404» |
 | A2 — implementación de #11 | ¿Fuera de alcance, regresiones, secretos, tests débiles? | Faltaba detectar un `UPDATE` sin `WHERE` (M9): corregido. Se alineó el modelo de datos sobre `version` y el ejemplo del README para PowerShell |
 | A1 — tests de #17 antes del componente | ¿Escenarios sin test? ¿Tests que no pueden fallar? | El caso de «1.5» podía pasar por el motivo equivocado (jsdom vacía el campo): se asigna el valor completo y se comprueba. Se agregó que los botones solo aparecen bloqueados en los límites. Las flechas del teclado y las medidas se comprobaron en navegador real (sección 2b) |
+| A1 — tests de #12 antes de implementar | ¿Falta algún escenario del contrato? ¿Algún test no puede fallar? ¿Son confiables los tests con procesos reales? | Se agregó el 409 para un cambio de solo precio (la mutación V4 pasaba en verde), la validación de `version` antes del 404, que `errores` tenga solo `version`, y que el 409 de «otro medicamento» se compruebe de verdad. Los tests concurrentes con reintentos pasaban con o sin candado: se dejaron como pruebas de robustez y se agregó una prueba con 3 procesos reales que usa una versión vieja |
 
 ### Revisión con contexto limpio (G5)
 
@@ -176,13 +191,13 @@ Un subagente con Opus, que solo vio el diff y los criterios (no la conversación
 | El selector no está montado en ninguna pantalla | Sí: dependía de #8 | Resuelto: Coaffy lo conectó a la búsqueda en #26 (sección 2c) |
 | Comparación del token con `===`, `CANTIDAD_MAXIMA` duplicada en front y back, el `PUT` edita medicamentos inactivos | Sí | Se aceptan como deuda conocida del prototipo (token simulado; máximo espejo comentado; inactivos irrelevantes en el Sprint 1) |
 
-## 5. Nota para #12 (Vicenlol09)
+## 5. Nota sobre #12 (resuelta)
 
-Cuando #12 agregue `AND version = ?` al `UPDATE`, `changes === 0` ya no significará solo «no existe»: también será «la versión cambió» (409). Hay que distinguir ambos casos dentro de la misma transacción para no devolver 404 por un conflicto de versión.
+Con `AND version = ?` en el `UPDATE`, `changes === 0` significa «no existe» o «la versión cambió» (409). El repository los distingue dentro de la misma transacción (`medicamentosRepository.actualizarPrecioYStock`), así que un conflicto de versión nunca devuelve 404. El panel (#13) debe leer la `version` de cada medicamento (la devuelve el `GET` del backoffice) y enviarla en cada guardado.
 
 ## 6. Pendiente de completar
 
 - ~~A3 antes del PR a `main` y verificación en clon limpio de `dev`~~: hechos (A3 con el advisor Opus y clon limpio de `origin/dev` el 2026-09-30).
 - **#17 ya se puede cerrar:** el selector está conectado a la búsqueda (#26) y el flujo se verificó con teclado en navegador real (sección 2c). Pasa a Done cuando el PR `dev → main` se mergee. La confirmación del pedido es #18 (Vicenlol09) y no bloquea #17.
-- **#14 queda en dos partes.** Hecho: cambio visible en la búsqueda, valores inválidos que dejan el anterior intacto y cambios mientras ocurren ventas (sin errores y sin pisar el stock al cambiar el precio). Pendiente: «actualización hecha mientras ocurre una venta» con **datos viejos**, que depende de #12 (Vicenlol09): hoy el `PUT` puede pisar una venta. El test ya está escrito como `it.skip` en `us13-mantener-stock.funcional.test.js`; al implementar #12 se le quita el `.skip`. Por eso el PR usa `Refs #14`, no `Closes #14`.
+- **#14 ya se puede cerrar tras #12.** Hecho: cambio visible en la búsqueda, valores inválidos que dejan el anterior intacto, cambios mientras ocurren ventas y, con #12, la actualización con **datos viejos** (409; el `it.skip` se activó). Pasa a Done cuando el PR de #12 se mergee.
 - **Riesgo del Sprint:** #12, #13 y #18 (Vicenlol09) siguen en Backlog. Sin #18 la demostración termina en «La confirmación del pedido estará disponible muy pronto»; sin #13 el Gherkin de US-13 no puede ejecutarse «en el panel de mantención».

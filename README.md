@@ -41,9 +41,9 @@ El `.env` no se sube al repositorio.
 
 - **Datos sintéticos:** todos los medicamentos, precios y stock de `backend/seed/medicamentos_semilla.csv` son inventados. No hay datos reales de la farmacia ni de personas (sin RUT, recetas, nombres ni direcciones). El repositorio es público: nunca se suben planillas reales (`*.xls`, `*.xlsx` están en `.gitignore`).
 - **Productos de prueba:** `PRB-001` (1 unidad) y `PRB-002` (2 unidades) existen solo para las pruebas de concurrencia. `MED-014`, `MED-019` y `MED-030` vienen sin stock.
-- **Token del backoffice simulado:** el backoffice se protege con el header `x-backoffice-token`, comparado con `BACKOFFICE_TOKEN` del `.env`. **No es autenticación real**; es solo para el prototipo. Si `BACKOFFICE_TOKEN` está vacío, el backoffice rechaza todas las peticiones. Ejemplo para cambiar el precio de un medicamento (Git Bash, macOS o Linux; en PowerShell usa `curl.exe` y comillas dobles escapadas):
+- **Token del backoffice simulado:** el backoffice se protege con el header `x-backoffice-token`, comparado con `BACKOFFICE_TOKEN` del `.env`. **No es autenticación real**; es solo para el prototipo. Si `BACKOFFICE_TOKEN` está vacío, el backoffice rechaza todas las peticiones. Ejemplo para cambiar el precio de un medicamento (Git Bash, macOS o Linux; en PowerShell usa `curl.exe` y comillas dobles escapadas). Hay que enviar la `version` vigente del medicamento (parte en 0 con `npm run seed` y sube con cada venta o cambio); si no coincide, el sistema responde que el stock cambió y no guarda nada:
   ```bash
-  curl -X PUT http://localhost:5173/api/backoffice/medicamentos/MED-001 -H "x-backoffice-token: <el valor de tu .env>" -H "Content-Type: application/json" -d '{"precioUnitario": 2100}'
+  curl -X PUT http://localhost:5173/api/backoffice/medicamentos/MED-001 -H "x-backoffice-token: <el valor de tu .env>" -H "Content-Type: application/json" -d '{"precioUnitario": 2100, "version": 0}'
   ```
 - **Fuera del Sprint 1:** pagos, Praxsuite, SAP, WhatsApp, delivery e IA no están implementados.
 

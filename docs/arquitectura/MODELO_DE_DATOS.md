@@ -62,7 +62,7 @@ Semilla: `backend/seed/medicamentos_semilla.csv`, 34 filas. Sin stock: MED-014, 
 | `GET /api/medicamentos?q=` | US-02 | `q` con al menos 2 letras | `200 { resultados: [...] }` · si la lista está vacía agrega `mensaje: "No encontramos ese medicamento…"` · `400` si `q` es muy corto |
 | `POST /api/pedidos` | US-15 | `{ codigo, cantidad, alias? }` | `201 { pedido }` · `404 no_existe` · `400 cantidad_invalida` · `409 sin_stock` |
 | `GET /api/backoffice/medicamentos` | US-13 | header `x-backoffice-token` | `200 { medicamentos: [...] }` · `401` |
-| `PUT /api/backoffice/medicamentos/:codigo` | US-13 | `{ precioUnitario?, stock?, version? }` + header (`version` pasa a ser obligatoria con #12) | `200 { medicamento }` · `400 { motivo, mensaje, errores: { campo: motivo } }` · `401 { motivo, mensaje }` · `404 no_existe` · `409` si la versión cambió (lo agrega #12) |
+| `PUT /api/backoffice/medicamentos/:codigo` | US-13 | `{ precioUnitario?, stock?, version }` + header (`version` obligatoria, #12) | `200 { medicamento }` · `400 { motivo, mensaje, errores: { campo: motivo } }` · `401 { motivo, mensaje }` · `404 no_existe` · `409 { motivo: "version_cambiada", mensaje }` si la versión cambió |
 
 Cada resultado de búsqueda devuelve: `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible`. El pedido devuelve: `numeroPedido, medicamento, cantidad, precioUnitario, total, estado, fechaCreacion`.
 
@@ -78,9 +78,11 @@ Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para 
 **Detalle del `PUT /api/backoffice/medicamentos/:codigo` (#11):**
 
 - Requiere el header `x-backoffice-token` (token simulado). Si falta, es incorrecto, o el servidor no tiene token configurado: `401 { motivo: "no_autorizado", mensaje }`. La autorización se revisa antes que los datos (un JSON mal formado se rechaza antes, con `400`).
-- Se editan solo `precioUnitario` y `stock`; cualquier otro campo se ignora, incluido `version`: por ahora no se exige, y #12 la exigirá según §5. Debe venir al menos uno. Ambos deben ser números JSON **enteros** (no texto): `precioUnitario` mayor que cero y hasta 10.000.000, y `stock` desde cero y hasta 1.000.000 (valores mayores se rechazan para no guardar números que rompan los totales).
-- Si algún valor es inválido no se guarda nada y responde `400 { motivo: "datos_invalidos", mensaje, errores }`, con un motivo por campo (`errores.precioUnitario`, `errores.stock`, o `errores.general` si no vino ninguno).
-- Si el código no existe: `404 { motivo: "no_existe", mensaje }`.
+- Se editan solo `precioUnitario` y `stock`; cualquier otro campo se ignora. Debe venir al menos uno. Ambos deben ser números JSON **enteros** (no texto): `precioUnitario` mayor que cero y hasta 10.000.000, y `stock` desde cero y hasta 1.000.000 (valores mayores se rechazan para no guardar números que rompan los totales).
+- `version` es **obligatoria** (#12): un entero desde cero, la que leyó el panel (§5). No se edita; solo sube con cada cambio. Si falta o no es un entero válido, `400` con `errores.version`.
+- Si algún valor es inválido no se guarda nada y responde `400 { motivo: "datos_invalidos", mensaje, errores }`, con un motivo por campo (`errores.precioUnitario`, `errores.stock`, `errores.version`, o `errores.general` si no vino ni precio ni stock). La validación va antes que el candado de versión y que la búsqueda del código.
+- Si el código no existe: `404 { motivo: "no_existe", mensaje }` (aunque la versión enviada sea cualquiera).
+- Si la `version` enviada no es la vigente (una venta u otra edición cambió el medicamento después de que el panel lo leyó): `409 { motivo: "version_cambiada", mensaje: "El stock cambió mientras editabas. Recarga e intenta de nuevo." }` y no se guarda nada, tampoco el precio. Aplica a cualquier cambio, también al de solo precio.
 - Un cambio válido sube `version` en 1 y responde `200 { medicamento }` con `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible, version`.
 - En cualquier endpoint, un error del cliente que detecta el servidor responde `{ motivo: "solicitud_invalida", mensaje }` con su código: `400` (JSON mal formado o dirección mal codificada), `413` (cuerpo demasiado grande) o `415` (codificación de caracteres no soportada). Un fallo interno real responde `500 { motivo: "error_interno", mensaje }`.
 
@@ -120,3 +122,5 @@ WHERE codigo = ? AND version = ?;
 ```
 
 Si `changes === 0`, alguien (por ejemplo una venta) modificó el producto mientras se editaba: se responde `409` con el mensaje "El stock cambió mientras editabas. Recarga e intenta de nuevo."
+
+`changes === 0` también ocurre cuando el código no existe. Para no confundir ambos casos, el repository vuelve a leer el medicamento **dentro de la misma transacción**: si existe, es un conflicto de versión (`409`); si no, es `404`. Implementado en `medicamentosRepository.actualizarPrecioYStock` (#12).
