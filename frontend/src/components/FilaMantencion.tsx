@@ -6,7 +6,7 @@ import './FilaMantencion.css';
 // #13: una fila del panel de mantención (US-13). Muestra lo guardado y deja editar precio y stock.
 export type AvisoFila =
   | { tipo: 'exito' | 'info'; texto: string }
-  | { tipo: 'error'; texto?: string; errores?: ErroresCampo };
+  | { tipo: 'error'; texto?: string; ayuda?: string; errores?: ErroresCampo };
 
 interface Props {
   medicamento: MedicamentoBackoffice;
@@ -34,11 +34,13 @@ const origenDe = (m: MedicamentoBackoffice, reinicio: number): Origen => ({
   stock: String(m.stock),
 });
 
-// Un número escrito se envía como número y cualquier otra cosa tal cual, para que el backend la
+// Un entero escrito se envía como número y cualquier otra cosa tal cual, para que el backend la
 // rechace y explique el motivo. Por eso los campos son de texto (type="number" vaciaría «abc»).
+// Los decimales y los puntos de miles NO se convierten: en Chile «10.000» es diez mil, pero
+// Number('10.000') daría 10, un entero válido que se guardaría sin avisar.
 function aValor(texto: string): number | string {
   const limpio = texto.trim();
-  return /^-?\d+(\.\d+)?$/.test(limpio) ? Number(limpio) : limpio;
+  return /^-?\d+$/.test(limpio) ? Number(limpio) : limpio;
 }
 
 const unidades = (n: number) => `${n} ${n === 1 ? 'unidad' : 'unidades'}`;
@@ -140,16 +142,23 @@ function Fila({ medicamento, reinicio, aviso, guardando, onGuardar, onSinCambios
         <button
           type="submit"
           className="fila__guardar"
-          aria-describedby={idTitulo}
           aria-disabled={guardando}
         >
-          {guardando ? 'Guardando…' : 'Guardar cambios'}
+          {guardando ? (
+            'Guardando…'
+          ) : (
+            <>
+              Guardar cambios{' '}
+              <span className="solo-lectores">de {medicamento.nombre}</span>
+            </>
+          )}
         </button>
       </form>
 
       {errorFila && (
         <p className="fila__error fila__error--fila" role="alert">
-          {errorFila}
+          <span>{errorFila}</span>
+          {aviso?.tipo === 'error' && aviso.ayuda && <span className="fila__ayuda"> {aviso.ayuda}</span>}
         </p>
       )}
       {/* Siempre presente (aunque vacía) para que el lector de pantalla anuncie el aviso al aparecer. */}

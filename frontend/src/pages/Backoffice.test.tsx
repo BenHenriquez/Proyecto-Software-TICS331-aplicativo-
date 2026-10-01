@@ -178,6 +178,7 @@ describe('Backoffice (panel de mantención)', () => {
 
       expect(screen.queryByRole('article')).toBeNull();
       expect((campoClave() as HTMLInputElement).value).toBe('');
+      expect(document.activeElement).toBe(campoClave()); // el foco no se pierde al desaparecer el botón
       // La clave anterior se olvidó: entrar sin escribir no consulta al backend...
       const consultas = fetchFalso.mock.calls.length;
       await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
@@ -233,6 +234,7 @@ describe('Backoffice (panel de mantención)', () => {
       const alerta = await screen.findByRole('alert');
       expect(alerta.textContent).toMatch(texto);
       expect(alerta.textContent).not.toMatch(/500|TypeError|fetch|texto técnico/i);
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Intentar de nuevo' }));
 
       simular();
       await usuario.click(screen.getByRole('button', { name: 'Intentar de nuevo' }));
@@ -255,6 +257,17 @@ describe('Backoffice (panel de mantención)', () => {
       expect(precio('Losartán 50 mg').value).toBe('1990');
       expect(stock('Losartán 50 mg').value).toBe('120');
       expect(guardar('Losartán 50 mg')).toBeTruthy();
+    });
+
+    it('los botones de guardar se distinguen por el nombre del medicamento (hay uno por fila)', async () => {
+      simular();
+      const { entrar } = mostrar();
+
+      await entrar();
+
+      await screen.findByRole('article', { name: 'Losartán 50 mg' });
+      expect(screen.getByRole('button', { name: 'Guardar cambios de Losartán 50 mg' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Guardar cambios de Amlodipino 5 mg' })).toBeTruthy();
     });
 
     it('un medicamento sin stock lo dice con texto visible y se puede reponer', async () => {
@@ -363,6 +376,28 @@ describe('Backoffice (panel de mantención)', () => {
       expect(within(fila('Amlodipino 5 mg')).getByText('$1.490')).toBeTruthy();
     });
 
+    it('guardar en dos filas casi a la vez: ninguno se descarta en silencio', async () => {
+      const pendientes: Array<(r: Response) => void> = [];
+      simular({ guardar: () => new Promise<Response>((r) => pendientes.push(r)) });
+      const { usuario, entrar } = mostrar();
+      await entrar();
+      await screen.findByRole('article', { name: 'Losartán 50 mg' });
+      await escribir(usuario, precio('Losartán 50 mg'), '2500');
+      await escribir(usuario, precio('Amlodipino 5 mg'), '1600');
+
+      await usuario.click(guardar('Losartán 50 mg'));
+      await usuario.click(guardar('Amlodipino 5 mg'));
+
+      await waitFor(() => expect(llamadas('PUT')).toHaveLength(2));
+      expect(cuerpoDelPut(0)).toEqual({ precioUnitario: 2500, version: 0 });
+      expect(cuerpoDelPut(1)).toEqual({ precioUnitario: 1600, version: 0 });
+      const ok = (m: unknown) => new Response(JSON.stringify({ medicamento: m }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      pendientes[0](ok({ ...losartan50, precioUnitario: 2500, version: 1 }));
+      pendientes[1](ok({ ...amlodipino, precioUnitario: 1600, version: 1 }));
+      await within(fila('Losartán 50 mg')).findByText('Guardamos el cambio de Losartán 50 mg.');
+      await within(fila('Amlodipino 5 mg')).findByText('Guardamos el cambio de Amlodipino 5 mg.');
+    });
+
     it('si no cambió nada, avisa y no envía nada al backend', async () => {
       simular();
       const { usuario, entrar } = mostrar();
@@ -404,7 +439,10 @@ describe('Backoffice (panel de mantención)', () => {
 
     it.each([
       ['stock negativo', 'stock', '-1', -1, MENSAJE_STOCK],
-      ['stock decimal', 'stock', '2.5', 2.5, MENSAJE_STOCK],
+      ['stock decimal', 'stock', '2.5', '2.5', MENSAJE_STOCK],
+      // En Chile «10.000» es diez mil: no se puede leer como 10. Se envía tal cual y el backend lo rechaza.
+      ['stock con punto de miles', 'stock', '1.000', '1.000', MENSAJE_STOCK],
+      ['precio con punto de miles', 'precio', '10.000', '10.000', MENSAJE_PRECIO],
       ['stock no numérico', 'stock', 'abc', 'abc', MENSAJE_STOCK],
       ['precio vacío', 'precio', '', '', MENSAJE_PRECIO],
       ['precio no numérico', 'precio', 'abc', 'abc', MENSAJE_PRECIO],
@@ -544,6 +582,8 @@ describe('Backoffice (panel de mantención)', () => {
       expect(screen.queryByText(/Guardamos el cambio/)).toBeNull();
       // La recarga es silenciosa: el aviso sigue ahí y el foco no se pierde del botón
       expect(within(fila('Losartán 50 mg')).getByText(MENSAJE_CONFLICTO)).toBeTruthy();
+      // Y le explica qué pasó con lo que escribió: ya se recargó y debe volver a escribirlo
+      expect(within(fila('Losartán 50 mg')).getByText(/vuelve a escribir tu cambio/i)).toBeTruthy();
       expect(document.activeElement).toBe(guardar('Losartán 50 mg'));
 
       // Con lo recargado, la misma edición se guarda enviando la version nueva
@@ -577,6 +617,26 @@ describe('Backoffice (panel de mantención)', () => {
       await usuario.click(guardar('Amlodipino 5 mg'));
       await waitFor(() => expect(llamadas('PUT')).toHaveLength(2));
       expect(cuerpoDelPut(1)).toEqual({ precioUnitario: 1600, version: 0 });
+    });
+  });
+
+  describe('salir mientras se guarda', () => {
+    it('la respuesta que llega después no deja avisos viejos al volver a entrar', async () => {
+      let terminar!: (r: Response) => void;
+      simular({ guardar: () => new Promise<Response>((r) => (terminar = r)) });
+      const { usuario, entrar, campoClave } = mostrar();
+      await entrar();
+      await screen.findByRole('article', { name: 'Losartán 50 mg' });
+      await escribir(usuario, precio('Losartán 50 mg'), '2500');
+      await usuario.click(guardar('Losartán 50 mg'));
+
+      await usuario.click(screen.getByRole('button', { name: 'Salir del backoffice' }));
+      terminar(new Response(JSON.stringify({ medicamento: { ...losartan50, precioUnitario: 2500, version: 1 } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      await usuario.type(campoClave(), `${CLAVE}{Enter}`);
+
+      await screen.findByRole('article', { name: 'Losartán 50 mg' });
+      expect(screen.queryByText(/Guardamos el cambio/)).toBeNull();
+      expect(precio('Losartán 50 mg').value).toBe('1990');
     });
   });
 

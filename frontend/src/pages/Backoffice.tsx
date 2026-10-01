@@ -16,13 +16,15 @@ import './Backoffice.css';
 // stock editables, confirmación del cambio y errores junto al campo. Estados: acceso, cargando,
 // error, vacío y listado. La clave (token SIMULADO, ver README) vive solo en memoria.
 type Estado =
-  | { tipo: 'acceso'; error?: string }
+  // `enfocar` lleva el foco al campo de la clave cuando se vuelve al ingreso (no en la primera carga).
+  | { tipo: 'acceso'; error?: string; enfocar?: boolean }
   | { tipo: 'cargando' }
   | { tipo: 'error'; mensaje: string }
   | { tipo: 'listado' };
 
 const MENSAJE_SIN_CLAVE = 'Escribe la clave del equipo para entrar.';
 const MENSAJE_SIN_CAMBIOS = 'No hay cambios para guardar.';
+const AYUDA_CONFLICTO = 'Ya recargamos lo guardado. Vuelve a escribir tu cambio y guarda de nuevo.';
 
 const textoCantidad = (n: number) => (n === 1 ? 'Mostrando 1 medicamento.' : `Mostrando ${n} medicamentos.`);
 
@@ -33,25 +35,34 @@ export default function Backoffice() {
   const [medicamentos, setMedicamentos] = useState<MedicamentoBackoffice[]>([]);
   const [avisos, setAvisos] = useState<Record<string, AvisoFila | undefined>>({});
   const [reinicios, setReinicios] = useState<Record<string, number>>({});
-  const [guardando, setGuardando] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState<Record<string, true>>({});
 
-  const enCurso = useRef(false);
+  // Guardados en curso (se puede guardar en filas distintas a la vez) y número de sesión: si se
+  // sale mientras se guarda, la respuesta que llega después no debe dejar avisos en la sesión nueva.
+  const enCurso = useRef(new Set<string>());
+  const generacion = useRef(0);
   const campoClave = useRef<HTMLInputElement>(null);
   const zonaListado = useRef<HTMLElement>(null);
+  const botonReintentar = useRef<HTMLButtonElement>(null);
 
-  // El foco sigue a la funcionaria: al entrar va al listado; si la clave falla, vuelve al campo.
+  // El foco sigue a la funcionaria: al entrar va al listado; si la clave falla o se sale, vuelve al
+  // campo; si el listado no carga, va a «Intentar de nuevo».
   useEffect(() => {
     if (estado.tipo === 'listado') zonaListado.current?.focus();
-    else if (estado.tipo === 'acceso' && estado.error) campoClave.current?.focus();
+    else if (estado.tipo === 'error') botonReintentar.current?.focus();
+    else if (estado.tipo === 'acceso' && (estado.error || estado.enfocar)) campoClave.current?.focus();
   }, [estado]);
 
   function cerrarSesion(error?: string) {
+    generacion.current += 1;
+    enCurso.current.clear();
+    setGuardando({});
     setSesion(null);
     setClave('');
     setMedicamentos([]);
     setAvisos({});
     setReinicios({});
-    setEstado({ tipo: 'acceso', error });
+    setEstado({ tipo: 'acceso', error, enfocar: true });
   }
 
   async function cargar(claveUsada: string) {
@@ -79,38 +90,52 @@ export default function Backoffice() {
   const reiniciar = (codigo: string) => setReinicios((r) => ({ ...r, [codigo]: (r[codigo] ?? 0) + 1 }));
 
   async function guardar(medicamento: MedicamentoBackoffice, cambios: CambiosMedicamento, version: number) {
-    if (enCurso.current || sesion === null) return;
-    enCurso.current = true;
-    setGuardando(medicamento.codigo);
-    avisar(medicamento.codigo, undefined);
+    const { codigo } = medicamento;
+    if (enCurso.current.has(codigo) || sesion === null) return;
+    const sesionDeEsteGuardado = generacion.current;
+    const sigueVigente = () => sesionDeEsteGuardado === generacion.current;
+
+    enCurso.current.add(codigo);
+    setGuardando((g) => ({ ...g, [codigo]: true }));
+    avisar(codigo, undefined);
     try {
-      const guardado = await guardarMedicamento(sesion, medicamento.codigo, cambios, version);
+      const guardado = await guardarMedicamento(sesion, codigo, cambios, version);
+      if (!sigueVigente()) return;
       // Lo que se ve guardado es lo que respondió el backend, no lo que se escribió.
       setMedicamentos((lista) => lista.map((m) => (m.codigo === guardado.codigo ? guardado : m)));
-      reiniciar(medicamento.codigo);
-      avisar(medicamento.codigo, { tipo: 'exito', texto: `Guardamos el cambio de ${medicamento.nombre}.` });
+      reiniciar(codigo);
+      avisar(codigo, { tipo: 'exito', texto: `Guardamos el cambio de ${medicamento.nombre}.` });
     } catch (error) {
+      if (!sigueVigente()) return;
       if (error instanceof ErrorNoAutorizado) {
         cerrarSesion(error.message);
       } else if (error instanceof ErrorValidacion) {
         const conMotivo = Boolean(error.errores.precioUnitario || error.errores.stock || error.errores.general);
-        avisar(medicamento.codigo, { tipo: 'error', errores: error.errores, texto: conMotivo ? undefined : error.message });
+        avisar(codigo, { tipo: 'error', errores: error.errores, texto: conMotivo ? undefined : error.message });
       } else if (error instanceof ErrorConflicto) {
-        avisar(medicamento.codigo, { tipo: 'error', texto: error.message });
+        avisar(codigo, { tipo: 'error', texto: error.message, ayuda: AYUDA_CONFLICTO });
         // Recarga en silencio: ella ve lo guardado de verdad (por ejemplo, la venta) y puede reintentar.
         try {
-          setMedicamentos(await listarBackoffice(sesion));
-          reiniciar(medicamento.codigo);
+          const lista = await listarBackoffice(sesion);
+          if (!sigueVigente()) return;
+          setMedicamentos(lista);
+          reiniciar(codigo);
         } catch (errorAlRecargar) {
-          if (errorAlRecargar instanceof ErrorNoAutorizado) cerrarSesion(errorAlRecargar.message);
+          if (sigueVigente() && errorAlRecargar instanceof ErrorNoAutorizado) cerrarSesion(errorAlRecargar.message);
         }
       } else {
         const mensaje = error instanceof ErrorApi ? error.message : 'Tuvimos un problema al guardar el cambio.';
-        avisar(medicamento.codigo, { tipo: 'error', texto: mensaje });
+        avisar(codigo, { tipo: 'error', texto: mensaje });
       }
     } finally {
-      enCurso.current = false;
-      setGuardando(null);
+      // Si se salió mientras se guardaba, cerrarSesion ya limpió todo (y puede haber otra sesión).
+      if (sigueVigente()) {
+        enCurso.current.delete(codigo);
+        setGuardando((g) => {
+          const { [codigo]: _terminado, ...resto } = g;
+          return resto;
+        });
+      }
     }
   }
 
@@ -150,7 +175,7 @@ export default function Backoffice() {
       {estado.tipo === 'error' && (
         <div className="aviso aviso--error" role="alert">
           <p className="aviso__titulo">{estado.mensaje}</p>
-          <button type="button" onClick={() => sesion !== null && void cargar(sesion)}>
+          <button ref={botonReintentar} type="button" onClick={() => sesion !== null && void cargar(sesion)}>
             Intentar de nuevo
           </button>
         </div>
@@ -173,7 +198,7 @@ export default function Backoffice() {
                     medicamento={m}
                     reinicio={reinicios[m.codigo] ?? 0}
                     aviso={avisos[m.codigo]}
-                    guardando={guardando === m.codigo}
+                    guardando={guardando[m.codigo] === true}
                     onGuardar={(cambios, version) => void guardar(m, cambios, version)}
                     onSinCambios={() => avisar(m.codigo, { tipo: 'info', texto: MENSAJE_SIN_CAMBIOS })}
                   />

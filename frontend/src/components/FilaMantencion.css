@@ -87,6 +87,22 @@
   margin-top: 1rem;
 }
 
+.fila__ayuda {
+  font-weight: 400;
+}
+
+/* Texto solo para lector de pantalla: distingue los botones repetidos de cada fila. */
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .fila__guardar {
   min-height: 64px;
   font-size: 1.3rem;
