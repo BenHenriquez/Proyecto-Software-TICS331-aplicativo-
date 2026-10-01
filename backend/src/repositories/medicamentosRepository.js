@@ -35,6 +35,16 @@ export function crearMedicamentosRepository(db) {
       return db.prepare('SELECT COUNT(*) AS n FROM medicamentos').get().n;
     },
 
+    // US-02 (#7): cada palabra (ya normalizada por el servicio) debe aparecer en `busqueda`, en
+    // cualquier orden. Se escapan % y _ para que se busquen como letras y no como comodines.
+    buscar(palabras) {
+      const condiciones = palabras.map(() => "busqueda LIKE ? ESCAPE '\\'").join(' AND ');
+      const patrones = palabras.map((p) => `%${p.replace(/[\\%_]/g, '\\$&')}%`);
+      return db
+        .prepare(`SELECT * FROM medicamentos WHERE activo = 1 AND ${condiciones} ORDER BY busqueda, codigo`)
+        .all(...patrones);
+    },
+
     buscarPorCodigo(codigo) {
       return db.prepare('SELECT * FROM medicamentos WHERE codigo = ?').get(codigo);
     },
