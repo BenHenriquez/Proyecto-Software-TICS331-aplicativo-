@@ -130,6 +130,17 @@ describe('ConfirmarPedido', () => {
       expect(within(zona()).queryByText('$5.780')).toBeNull();
     });
 
+    it('al terminar, lo anuncia en voz alta con el número de pedido (región de estado ya presente)', async () => {
+      fetchFalso.mockReturnValue(responder(201, { pedido: pedidoCreado }));
+      const { usuario, confirmar } = mostrar(2);
+      const estados = screen.getAllByRole('status'); // la región existe antes de confirmar
+
+      await usuario.click(confirmar());
+      await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
+
+      expect(estados.some((e) => e.textContent === 'Tu pedido fue creado. Número de pedido P-7KQ4ZD.')).toBe(true);
+    });
+
     it('tras crear el pedido ya no se puede confirmar otra vez (no se duplica la compra)', async () => {
       fetchFalso.mockReturnValue(responder(201, { pedido: pedidoCreado }));
       const { usuario, confirmar } = mostrar(2);
@@ -206,8 +217,11 @@ describe('ConfirmarPedido', () => {
       expect(botones(zona())).toEqual(['Volver a los resultados']);
       expect(fetchFalso).toHaveBeenCalledOnce();
 
+      // Explica por qué no se puede cambiar la cantidad aquí: hay que ver cómo quedó el stock
+      expect(screen.getByText(/ver cómo quedó el stock/)).toBeTruthy();
+
       await usuario.click(screen.getByRole('button', { name: 'Volver a los resultados' }));
-      expect(onVolverAResultados).toHaveBeenCalledWith(true);
+      expect(onVolverAResultados).toHaveBeenCalledOnce(); // y la búsqueda se refresca
       expect(onCambiarCantidad).not.toHaveBeenCalled();
     });
 
@@ -224,7 +238,7 @@ describe('ConfirmarPedido', () => {
       expect(screen.queryByRole('heading', { name: 'Tu pedido fue creado' })).toBeNull();
       expect(botones(zona())).toEqual(['Volver a los resultados']);
       await usuario.click(screen.getByRole('button', { name: 'Volver a los resultados' }));
-      expect(onVolverAResultados).toHaveBeenCalledWith(true);
+      expect(onVolverAResultados).toHaveBeenCalledOnce();
     });
 
     it('si falla la conexión, avisa que quizá el pedido sí se creó, sin códigos, y deja intentar de nuevo', async () => {

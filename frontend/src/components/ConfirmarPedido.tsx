@@ -16,8 +16,8 @@ interface Props {
   medicamento: MedicamentoAConfirmar;
   cantidad: number;
   onCambiarCantidad: () => void;
-  // `refrescar` es true cuando el rechazo indica que lo que se veía ya no es cierto (stock, medicamento).
-  onVolverAResultados: (refrescar: boolean) => void;
+  // Tras un rechazo lo que se veía ya no es cierto (stock, medicamento): quien la use debe refrescar la búsqueda.
+  onVolverAResultados: () => void;
   onNuevaBusqueda: () => void;
   // Avisa que hay una confirmación en curso, para que el buscador no la deje atrás.
   onOcupado: (ocupado: boolean) => void;
@@ -88,9 +88,19 @@ export default function ConfirmarPedido({
   const puedeConfirmar = estado.tipo === 'resumen' || estado.tipo === 'confirmando' || estado.tipo === 'error';
   const textoConfirmar =
     estado.tipo === 'confirmando' ? 'Confirmando…' : estado.tipo === 'error' ? 'Intentar de nuevo' : 'Confirmar pedido';
+  // Región de estado siempre presente: así el lector de pantalla anuncia lo que pasa al cambiar su texto.
+  const anuncio =
+    estado.tipo === 'confirmando'
+      ? 'Confirmando tu pedido…'
+      : estado.tipo === 'exito'
+        ? `Tu pedido fue creado. Número de pedido ${estado.pedido.numeroPedido}.`
+        : '';
 
   return (
     <section ref={zona} className="confirmar" tabIndex={-1} aria-label={`Confirmar pedido de ${nombre}`}>
+      <p className="confirmar__anuncio" role="status">
+        {anuncio}
+      </p>
       {estado.tipo === 'exito' ? (
         <>
           <h2 className="confirmar__titulo">Tu pedido fue creado</h2>
@@ -122,9 +132,11 @@ export default function ConfirmarPedido({
             <div className="confirmar__error" role="alert">
               <p className="confirmar__error-texto">{estado.mensaje}</p>
               {estado.tipo === 'rechazado' && <p>No se creó ningún pedido.</p>}
+              {estado.tipo === 'rechazado' && (
+                <p className="confirmar__error-ayuda">Vuelve a los resultados para ver cómo quedó el stock y elegir de nuevo.</p>
+              )}
             </div>
           )}
-          {estado.tipo === 'confirmando' && <p role="status">Confirmando tu pedido…</p>}
 
           {/* aria-disabled (no disabled) para no perder el foco del teclado mientras confirma. */}
           {puedeConfirmar && (
@@ -148,7 +160,7 @@ export default function ConfirmarPedido({
             </button>
           )}
           {estado.tipo === 'rechazado' && (
-            <button type="button" className="confirmar__principal" onClick={() => onVolverAResultados(true)}>
+            <button type="button" className="confirmar__principal" onClick={onVolverAResultados}>
               Volver a los resultados
             </button>
           )}

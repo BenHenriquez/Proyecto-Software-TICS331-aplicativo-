@@ -67,6 +67,22 @@
   margin-top: 0.5rem;
 }
 
+.confirmar__error-ayuda {
+  font-weight: 400;
+}
+
+/* Solo para lector de pantalla: anuncia «Confirmando…» y el número de pedido al terminar. */
+.confirmar__anuncio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .confirmar__principal,
 .confirmar__secundario {
   width: 100%;

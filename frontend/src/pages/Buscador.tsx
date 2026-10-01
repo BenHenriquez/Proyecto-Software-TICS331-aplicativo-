@@ -36,6 +36,8 @@ export default function Buscador() {
   const campo = useRef<HTMLInputElement>(null);
   const zonaSelector = useRef<HTMLDivElement>(null);
   const listaResultados = useRef<HTMLUListElement>(null);
+  // Lo último que se buscó: el campo sigue editable mientras se ve la confirmación.
+  const ultimaConsulta = useRef('');
   const botonesElegir = useRef(new Map<string, HTMLButtonElement>());
   const codigoAlVolver = useRef<string | null>(null);
 
@@ -52,15 +54,16 @@ export default function Buscador() {
     }
   }, [elegido, cantidad]);
 
+  // El aviso de foco se consume cuando termina la búsqueda de refresco (con o sin resultados).
   useEffect(() => {
-    if (enfocarLista && estado.tipo === 'resultados') {
-      listaResultados.current?.focus();
-      setEnfocarLista(false);
-    }
+    if (!enfocarLista || estado.tipo === 'cargando') return;
+    if (estado.tipo === 'resultados') listaResultados.current?.focus();
+    setEnfocarLista(false);
   }, [enfocarLista, estado]);
 
-  async function buscar() {
+  async function buscar(texto = consulta) {
     if (ocupado) return;
+    ultimaConsulta.current = texto.trim();
     peticion.current?.abort();
     const controlador = new AbortController();
     peticion.current = controlador;
@@ -69,7 +72,7 @@ export default function Buscador() {
     setCantidad(null);
     setEstado({ tipo: 'cargando' });
     try {
-      const { resultados, mensaje } = await buscarMedicamentos(consulta.trim(), controlador.signal);
+      const { resultados, mensaje } = await buscarMedicamentos(texto.trim(), controlador.signal);
       if (controlador.signal.aborted) return;
       setEstado(
         resultados.length === 0
@@ -93,12 +96,12 @@ export default function Buscador() {
 
   // Tras un rechazo del pedido (sin stock, medicamento inexistente) lo que se veía ya no es cierto:
   // se vuelve a pedir la búsqueda para no mostrar stock viejo.
-  function volverDeLaConfirmacion(refrescar: boolean) {
-    if (!refrescar) return volver();
+  function volverDeLaConfirmacion() {
     setCantidad(null);
     setElegido(null);
     setEnfocarLista(true);
-    void buscar();
+    setConsulta(ultimaConsulta.current);
+    void buscar(ultimaConsulta.current);
   }
 
   // Después de crear un pedido: buscador limpio y el foco en el campo.

@@ -282,7 +282,8 @@ describe('Buscador', () => {
       expect(new Headers(posts()[0][1].headers).get('Content-Type')).toMatch(/application\/json/);
       expect(screen.getByText('P-7KQ4ZD')).toBeTruthy();
       expect(screen.getByText('Solicitud creada')).toBeTruthy();
-      expect(screen.getAllByText('$3.980').length).toBeGreaterThan(0);
+      const zona = screen.getByRole('region', { name: 'Confirmar pedido de Losartán 50 mg' });
+      expect(within(zona).getByText('$3.980')).toBeTruthy(); // el total que devolvió el backend
     });
 
     it('«Buscar otro medicamento» deja el buscador limpio y con el foco en el campo', async () => {
@@ -320,6 +321,45 @@ describe('Buscador', () => {
       expect(within(t).getByText('Sin stock')).toBeTruthy();
       expect(within(t).queryByRole('button', { name: /Elegir cantidad/ })).toBeNull();
       expect(busquedasHechas()).toHaveLength(2);
+      // El foco llega a la lista refrescada, no se queda en el vacío
+      expect(document.activeElement).toBe(screen.getByRole('list', { name: 'Resultados de la búsqueda' }));
+    });
+
+    it('al refrescar tras un rechazo repite la búsqueda original, aunque la vecina haya cambiado el campo', async () => {
+      simular({
+        busquedas: [[losartan50], [{ ...losartan50, stock: 0, disponible: false }]],
+        pedido: () => responder(409, { motivo: 'sin_stock', mensaje: SIN_STOCK }),
+      });
+      const { usuario, buscar, campo } = mostrar();
+      await llegarAlResumen(usuario, buscar);
+
+      await usuario.clear(campo());
+      await usuario.type(campo(), 'x'); // el campo sigue editable mientras se ve la confirmación
+      await usuario.click(screen.getByRole('button', { name: /Confirmar pedido/ }));
+      await screen.findByRole('alert');
+      await usuario.click(screen.getByRole('button', { name: 'Volver a los resultados' }));
+
+      await screen.findByRole('article', { name: 'Losartán 50 mg' });
+      expect(busquedasHechas()[1][0]).toBe('/api/medicamentos?q=Losart%C3%A1n');
+      expect((campo() as HTMLInputElement).value).toBe('Losartán');
+    });
+
+    it('si el refresco no trae resultados, el aviso de foco no queda pendiente para la próxima búsqueda', async () => {
+      simular({
+        busquedas: [[losartan50], [], [losartan50]],
+        pedido: () => responder(409, { motivo: 'sin_stock', mensaje: SIN_STOCK }),
+      });
+      const { usuario, buscar, campo } = mostrar();
+      await llegarAlResumen(usuario, buscar);
+      await usuario.click(screen.getByRole('button', { name: /Confirmar pedido/ }));
+      await screen.findByRole('alert');
+      await usuario.click(screen.getByRole('button', { name: 'Volver a los resultados' }));
+      await screen.findByText(MENSAJE_VACIO);
+
+      await buscar('Losartán');
+      await screen.findByRole('article', { name: 'Losartán 50 mg' });
+
+      expect(document.activeElement).toBe(campo()); // el foco no salta a la lista sin motivo
     });
 
     it('«Cambiar cantidad» en el resumen vuelve al selector del mismo medicamento sin comprar nada', async () => {
