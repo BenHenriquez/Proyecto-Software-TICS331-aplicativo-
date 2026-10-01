@@ -1,0 +1,120 @@
+/* Fila del panel de mantención (US-13, #13). Usa los tokens de estilos.css.
+   Funcionarias de backoffice y adultos mayores: letra >= 20 px, campos y botón >= 56 px, alto contraste;
+   el estado se dice con texto, no solo con color. */
+.fila {
+  padding: 1rem 1.25rem 1.25rem;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: var(--fondo);
+}
+
+.fila__nombre {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.fila__detalle {
+  margin: 0;
+}
+
+.fila__sin-stock {
+  display: inline-block;
+  margin: 0.5rem 0 0;
+  padding: 0.25rem 0.75rem;
+  border: 2px solid #8a0000;
+  border-radius: 8px;
+  background: #fdecec;
+  color: #5c0000;
+  font-weight: 800;
+}
+
+.fila__guardado {
+  margin: 0.75rem 0 1rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--suave);
+  border-radius: 8px;
+}
+
+.fila__guardado div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+}
+
+.fila__guardado dt {
+  font-weight: 700;
+}
+
+.fila__guardado dt::after {
+  content: ':';
+}
+
+.fila__guardado dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.fila__formulario {
+  display: grid;
+  gap: 1rem;
+}
+
+.fila__campo {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.fila__campo input {
+  width: 100%;
+}
+
+.fila__campo input[aria-invalid='true'] {
+  border-width: 4px;
+  border-color: #8a0000;
+}
+
+.fila__error {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 6px solid #8a0000;
+  background: #fdecec;
+  color: #5c0000;
+  font-weight: 700;
+}
+
+.fila__error--fila {
+  margin-top: 1rem;
+}
+
+.fila__guardar {
+  min-height: 64px;
+  font-size: 1.3rem;
+}
+
+/* aria-disabled no pinta nada por defecto: se ve apagado pero sigue recibiendo el foco. */
+.fila__guardar[aria-disabled='true'] {
+  background: #e3e8ee;
+  border: 2px dashed var(--borde);
+  color: #3a3a3a;
+  cursor: progress;
+}
+
+.fila .aviso {
+  margin: 1rem 0 0;
+}
+
+.fila [role='status']:empty {
+  margin: 0;
+}
+
+@media (min-width: 40rem) {
+  .fila__formulario {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+
+  .fila__guardar {
+    grid-column: 1 / -1;
+  }
+}

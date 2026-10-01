@@ -122,8 +122,8 @@ describe('Backoffice (panel de mantención)', () => {
     });
 
     it('con una clave incorrecta lo dice junto al campo, no muestra medicamentos y deja volver a intentar', async () => {
-      fetchFalso.mockReturnValue(responder(401, { motivo: 'no_autorizado', mensaje: MENSAJE_CLAVE }));
-      const { entrar, campoClave } = mostrar();
+      fetchFalso.mockImplementationOnce(() => responder(401, { motivo: 'no_autorizado', mensaje: MENSAJE_CLAVE }));
+      const { usuario, entrar, campoClave } = mostrar();
 
       await entrar('otra-clave');
 
@@ -132,6 +132,13 @@ describe('Backoffice (panel de mantención)', () => {
       expect(campoClave().getAttribute('aria-describedby')).toContain(alerta.id);
       expect(campoClave().getAttribute('aria-invalid')).toBe('true');
       expect(screen.queryByRole('article')).toBeNull();
+
+      // Puede volver a intentar con la clave correcta
+      simular();
+      await usuario.clear(campoClave());
+      await usuario.type(campoClave(), `${CLAVE}{Enter}`);
+      expect(await screen.findByRole('article', { name: 'Losartán 50 mg' })).toBeTruthy();
+      expect(llamadas('GET')[1][1].headers['x-backoffice-token']).toBe(CLAVE);
     });
 
     it('no pide entrar sin escribir la clave (no consulta al backend)', async () => {
@@ -144,14 +151,21 @@ describe('Backoffice (panel de mantención)', () => {
     });
 
     it('la clave vive solo en memoria: no se guarda en el navegador', async () => {
+      // Almacenamientos falsos: así se detecta cualquier intento de guardar la clave
+      const almacen = () => ({ setItem: vi.fn(), getItem: vi.fn(() => null), removeItem: vi.fn(), clear: vi.fn(), key: vi.fn(), length: 0 });
+      const local = almacen();
+      const sesion = almacen();
+      vi.stubGlobal('localStorage', local);
+      vi.stubGlobal('sessionStorage', sesion);
       simular();
       const { entrar } = mostrar();
 
       await entrar();
       await screen.findByRole('article', { name: 'Losartán 50 mg' });
 
-      expect(window.localStorage.length).toBe(0);
-      expect(window.sessionStorage.length).toBe(0);
+      expect(local.setItem).not.toHaveBeenCalled();
+      expect(sesion.setItem).not.toHaveBeenCalled();
+      expect(document.cookie).toBe('');
     });
 
     it('«Salir» olvida la clave y vuelve a pedirla', async () => {
@@ -164,6 +178,14 @@ describe('Backoffice (panel de mantención)', () => {
 
       expect(screen.queryByRole('article')).toBeNull();
       expect((campoClave() as HTMLInputElement).value).toBe('');
+      // La clave anterior se olvidó: entrar sin escribir no consulta al backend...
+      const consultas = fetchFalso.mock.calls.length;
+      await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
+      expect(fetchFalso.mock.calls.length).toBe(consultas);
+      // ...y la clave nueva es la que se envía
+      await usuario.type(campoClave(), 'clave-nueva{Enter}');
+      await screen.findByRole('article', { name: 'Losartán 50 mg' });
+      expect(llamadas('GET').at(-1)?.[1].headers['x-backoffice-token']).toBe('clave-nueva');
     });
   });
 
@@ -175,8 +197,8 @@ describe('Backoffice (panel de mantención)', () => {
 
       await entrar();
 
-      expect(screen.getByRole('status').textContent).toBe('Cargando medicamentos…');
-      terminar(new Response(JSON.stringify({ medicamentos: [losartan50] }), { status: 200 }));
+      expect(screen.getAllByRole('status').some((s) => s.textContent === 'Cargando medicamentos…')).toBe(true);
+      terminar(new Response(JSON.stringify({ medicamentos: [losartan50] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
       expect(await screen.findByRole('article', { name: 'Losartán 50 mg' })).toBeTruthy();
     });
 
@@ -250,8 +272,9 @@ describe('Backoffice (panel de mantención)', () => {
 
   describe('escenario feliz: la funcionaria cambia el precio o el stock y confirma', () => {
     it('guarda solo lo que cambió, con la version que leyó, y confirma el cambio', async () => {
+      // Mientras tanto se vendieron 2 unidades: el backend responde con el stock real (118)
       simular({
-        guardar: () => responder(200, { medicamento: { ...losartan50, precioUnitario: 2500, version: 1 } }),
+        guardar: () => responder(200, { medicamento: { ...losartan50, precioUnitario: 2500, stock: 118, version: 1 } }),
       });
       const { usuario, entrar } = mostrar();
       await entrar();
@@ -264,8 +287,10 @@ describe('Backoffice (panel de mantención)', () => {
       expect(cuerpoDelPut()).toEqual({ precioUnitario: 2500, version: 0 });
       expect(llamadas('PUT')[0][0]).toBe('/api/backoffice/medicamentos/MED-001');
       expect(llamadas('PUT')[0][1].headers['x-backoffice-token']).toBe(CLAVE);
-      // Lo guardado que se ve es lo que respondió el backend
+      // Lo guardado que se ve es lo que respondió el backend, no lo que se escribió
       expect(within(fila('Losartán 50 mg')).getByText('$2.500')).toBeTruthy();
+      expect(within(fila('Losartán 50 mg')).getByText('118 unidades')).toBeTruthy();
+      expect(stock('Losartán 50 mg').value).toBe('118');
     });
 
     it('guarda el stock, y con stock 0 el medicamento pasa a «Sin stock»', async () => {
@@ -358,13 +383,18 @@ describe('Backoffice (panel de mantención)', () => {
       await screen.findByRole('article', { name: 'Losartán 50 mg' });
       await escribir(usuario, precio('Losartán 50 mg'), '2500');
 
-      await usuario.click(guardar('Losartán 50 mg'));
-      await usuario.click(guardar('Losartán 50 mg'));
+      const boton = guardar('Losartán 50 mg');
+      await usuario.click(boton);
+      await usuario.click(boton);
 
-      expect(within(fila('Losartán 50 mg')).getByRole('button', { name: /Guardando/ })).toBeTruthy();
+      // Sigue siendo el mismo botón (el foco no se pierde): aria-disabled, no disabled
+      expect(boton.textContent).toMatch(/Guardando/);
+      expect(boton.getAttribute('aria-disabled')).toBe('true');
+      expect((boton as HTMLButtonElement).disabled).toBe(false);
       expect(llamadas('PUT')).toHaveLength(1);
-      terminar(new Response(JSON.stringify({ medicamento: { ...losartan50, precioUnitario: 2500, version: 1 } }), { status: 200 }));
+      terminar(new Response(JSON.stringify({ medicamento: { ...losartan50, precioUnitario: 2500, version: 1 } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
       await within(fila('Losartán 50 mg')).findByText('Guardamos el cambio de Losartán 50 mg.');
+      expect(boton.textContent).not.toMatch(/Guardando/);
     });
   });
 
@@ -400,6 +430,7 @@ describe('Backoffice (panel de mantención)', () => {
         expect(alerta.getAttribute('role')).toBe('alert');
         expect(elCampo.getAttribute('aria-describedby')).toContain(alerta.id);
         expect(elCampo.getAttribute('aria-invalid')).toBe('true');
+        expect(elCampo.value).toBe(texto); // lo que escribió se conserva para que lo corrija
         // Lo guardado sigue igual a la vista y no hay confirmación de éxito
         expect(within(fila('Losartán 50 mg')).getByText('$1.990')).toBeTruthy();
         expect(within(fila('Losartán 50 mg')).getByText('120 unidades')).toBeTruthy();
@@ -428,6 +459,20 @@ describe('Backoffice (panel de mantención)', () => {
 
       await within(fila('Losartán 50 mg')).findByText('Guardamos el cambio de Losartán 50 mg.');
       expect(within(fila('Losartán 50 mg')).queryByText(MENSAJE_PRECIO)).toBeNull();
+      expect(precio('Losartán 50 mg').getAttribute('aria-invalid')).not.toBe('true');
+    });
+
+    it('si el medicamento ya no existe (404), muestra el mensaje del sistema en la fila', async () => {
+      simular({ guardar: () => responder(404, { motivo: 'no_existe', mensaje: 'No encontramos ese medicamento. Vuelve a buscarlo, por favor.' }) });
+      const { usuario, entrar } = mostrar();
+      await entrar();
+      await screen.findByRole('article', { name: 'Losartán 50 mg' });
+
+      await escribir(usuario, stock('Losartán 50 mg'), '5');
+      await usuario.click(guardar('Losartán 50 mg'));
+
+      const alerta = await within(fila('Losartán 50 mg')).findByRole('alert');
+      expect(alerta.textContent).toBe('No encontramos ese medicamento. Vuelve a buscarlo, por favor.');
     });
 
     it('si el backend rechaza solo con un mensaje general, se muestra en la fila', async () => {
@@ -497,6 +542,9 @@ describe('Backoffice (panel de mantención)', () => {
       expect(llamadas('GET')).toHaveLength(2);
       expect(stock('Losartán 50 mg').value).toBe('118');
       expect(screen.queryByText(/Guardamos el cambio/)).toBeNull();
+      // La recarga es silenciosa: el aviso sigue ahí y el foco no se pierde del botón
+      expect(within(fila('Losartán 50 mg')).getByText(MENSAJE_CONFLICTO)).toBeTruthy();
+      expect(document.activeElement).toBe(guardar('Losartán 50 mg'));
 
       // Con lo recargado, la misma edición se guarda enviando la version nueva
       await escribir(usuario, stock('Losartán 50 mg'), '150');
@@ -505,9 +553,11 @@ describe('Backoffice (panel de mantención)', () => {
       expect(cuerpoDelPut(1)).toEqual({ stock: 150, version: 1 });
     });
 
-    it('el conflicto de un medicamento no borra lo que se está editando en otro', async () => {
+    it('el conflicto de un medicamento no borra lo que se edita en otro, y ese borrador conserva su version de origen', async () => {
+      // Al recargar, Amlodipino también cambió (otra venta en paralelo): version 1 y stock 70
+      const amlodipinoVendido = { ...amlodipino, stock: 70, version: 1 };
       simular({
-        listas: [[losartan50, amlodipino], [{ ...losartan50, stock: 118, version: 1 }, amlodipino]],
+        listas: [[losartan50, amlodipino], [{ ...losartan50, stock: 118, version: 1 }, amlodipinoVendido]],
         guardar: () => responder(409, { motivo: 'version_cambiada', mensaje: MENSAJE_CONFLICTO }),
       });
       const { usuario, entrar } = mostrar();
@@ -519,7 +569,14 @@ describe('Backoffice (panel de mantención)', () => {
       await usuario.click(guardar('Losartán 50 mg'));
       await within(fila('Losartán 50 mg')).findByText(MENSAJE_CONFLICTO);
 
+      // El borrador se conserva y lo guardado se actualiza para que ella vea la venta
       expect(precio('Amlodipino 5 mg').value).toBe('1600');
+      await waitFor(() => expect(within(fila('Amlodipino 5 mg')).getByText('70 unidades')).toBeTruthy());
+      // Guardarlo envía la version sobre la que se empezó a editar (0), no la recargada: así el
+      // backend lo rechaza en vez de dejar que un borrador viejo pise la venta
+      await usuario.click(guardar('Amlodipino 5 mg'));
+      await waitFor(() => expect(llamadas('PUT')).toHaveLength(2));
+      expect(cuerpoDelPut(1)).toEqual({ precioUnitario: 1600, version: 0 });
     });
   });
 
@@ -535,7 +592,7 @@ describe('Backoffice (panel de mantención)', () => {
 
       expect((await screen.findByRole('alert')).textContent).toBe(MENSAJE_CLAVE);
       expect(screen.queryByRole('article')).toBeNull();
-      expect(screen.getByLabelText('Clave del equipo')).toBeTruthy();
+      expect((screen.getByLabelText('Clave del equipo') as HTMLInputElement).value).toBe('');
     });
   });
 
@@ -547,7 +604,7 @@ describe('Backoffice (panel de mantención)', () => {
       await entrar(); // escribe la clave y presiona Enter
       await screen.findByRole('article', { name: 'Losartán 50 mg' });
 
-      await waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe('Medicamentos del backoffice'));
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('region', { name: 'Medicamentos del backoffice' })));
       await usuario.tab();
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Salir del backoffice' }));
       await usuario.tab();
