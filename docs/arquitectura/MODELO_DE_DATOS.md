@@ -61,7 +61,7 @@ Semilla: `backend/seed/medicamentos_semilla.csv`, 34 filas. Sin stock: MED-014, 
 | `GET /api/health` | — | — | `200 { ok: true }` |
 | `GET /api/medicamentos?q=` | US-02 | `q` con al menos 2 letras | `200 { resultados: [...] }` · si la lista está vacía agrega `mensaje: "No encontramos ese medicamento…"` · `400` si `q` es muy corto |
 | `POST /api/pedidos` | US-15 | `{ codigo, cantidad, alias? }` | `201 { pedido }` · `404 no_existe` · `400 cantidad_invalida` · `409 sin_stock` |
-| `GET /api/backoffice/medicamentos` | US-13 | header `x-backoffice-token` | `200 { medicamentos: [...] }` · `401` |
+| `GET /api/backoffice/medicamentos` | US-13 | header `x-backoffice-token` | `200 { medicamentos: [...] }` · `401 { motivo, mensaje }` |
 | `PUT /api/backoffice/medicamentos/:codigo` | US-13 | `{ precioUnitario?, stock?, version }` + header (`version` obligatoria, #12) | `200 { medicamento }` · `400 { motivo, mensaje, errores: { campo: motivo } }` · `401 { motivo, mensaje }` · `404 no_existe` · `409 { motivo: "version_cambiada", mensaje }` si la versión cambió |
 
 Cada resultado de búsqueda devuelve: `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible`. El pedido devuelve: `numeroPedido, medicamento, cantidad, precioUnitario, total, estado, fechaCreacion`.
@@ -74,6 +74,12 @@ Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para 
 - Coincidencia parcial por palabra: cada palabra de `q` debe aparecer en `busqueda` (nombre + principio activo), en cualquier orden. `%` y `_` se buscan como letras, no como comodines.
 - Solo aparecen medicamentos con `activo = 1`, ordenados por `busqueda`. Los que tienen stock 0 **sí** aparecen, con `disponible: false`.
 - Sin coincidencias: `200 { resultados: [], mensaje: "No encontramos ese medicamento…" }`.
+
+**Detalle del `GET /api/backoffice/medicamentos` (#13):**
+
+- Requiere el header `x-backoffice-token` (token simulado), igual que el `PUT`: sin él, con uno incorrecto o si el servidor no tiene token configurado, `401 { motivo: "no_autorizado", mensaje }` y no se muestra el catálogo.
+- Responde `200 { medicamentos: [...] }` con los medicamentos activos (`activo = 1`), incluidos los de stock 0, ordenados por la columna `busqueda` (sin mayúsculas ni tildes). Cada uno trae `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible, version`; no expone `busqueda`, `categoria` ni `activo`.
+- La `version` es la que el panel devuelve en cada `PUT` (§5). Solo lee: no cambia nada en la base.
 
 **Detalle del `PUT /api/backoffice/medicamentos/:codigo` (#11):**
 

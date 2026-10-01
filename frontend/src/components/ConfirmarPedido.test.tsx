@@ -338,7 +338,8 @@ describe('ConfirmarPedido', () => {
 
       terminar(new Response(JSON.stringify({ pedido: pedidoCreado }), { status: 201, headers: { 'Content-Type': 'application/json' } }));
       await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
-      expect(onOcupado).toHaveBeenLastCalledWith(false);
+      // onOcupado sale de un efecto, que React ejecuta un instante después de pintar el título
+      await waitFor(() => expect(onOcupado).toHaveBeenLastCalledWith(false));
     });
   });
 

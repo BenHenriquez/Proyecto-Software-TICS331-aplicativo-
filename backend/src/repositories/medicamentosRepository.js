@@ -51,6 +51,11 @@ export function crearMedicamentosRepository(db) {
         .all(...patrones);
     },
 
+    // US-13 (#13): el listado del panel. Mismo orden que la búsqueda (columna normalizada, sin tildes).
+    listarActivos() {
+      return db.prepare('SELECT * FROM medicamentos WHERE activo = 1 ORDER BY busqueda, codigo').all();
+    },
+
     buscarPorCodigo(codigo) {
       return db.prepare('SELECT * FROM medicamentos WHERE codigo = ?').get(codigo);
     },

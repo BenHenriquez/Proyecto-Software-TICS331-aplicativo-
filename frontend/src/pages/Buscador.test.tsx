@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Buscador from './Buscador';
 
@@ -322,7 +322,7 @@ describe('Buscador', () => {
       expect(within(t).queryByRole('button', { name: /Elegir cantidad/ })).toBeNull();
       expect(busquedasHechas()).toHaveLength(2);
       // El foco llega a la lista refrescada, no se queda en el vacío
-      expect(document.activeElement).toBe(screen.getByRole('list', { name: 'Resultados de la búsqueda' }));
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('list', { name: 'Resultados de la búsqueda' })));
     });
 
     it('al refrescar tras un rechazo repite la búsqueda original, aunque la vecina haya cambiado el campo', async () => {

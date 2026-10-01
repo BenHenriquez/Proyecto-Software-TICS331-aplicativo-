@@ -11,14 +11,3 @@ describe('GET /api/health', () => {
     expect(res.body).toEqual({ ok: true });
   });
 });
-
-describe('endpoints del Sprint 1 aún como esqueleto', () => {
-  const app = crearApp({ db: abrirDb(':memory:') });
-
-  it.each([['get', '/api/backoffice/medicamentos']])('%s %s responde 501 con mensaje en español', async (metodo, ruta) => {
-    const res = await request(app)[metodo](ruta);
-    expect(res.status).toBe(501);
-    expect(res.body.motivo).toBe('no_implementado');
-    expect(typeof res.body.mensaje).toBe('string');
-  });
-});

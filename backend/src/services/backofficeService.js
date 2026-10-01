@@ -34,6 +34,11 @@ function aVista(fila) {
 
 export function crearBackofficeService(medicamentosRepository) {
   return {
+    // El listado del panel (#13): incluye `version`, que el panel devuelve al guardar (#12).
+    listarMedicamentos() {
+      return medicamentosRepository.listarActivos().map(aVista);
+    },
+
     // Solo se editan precio y stock; cualquier otro campo del cuerpo se ignora.
     // `version` es obligatoria (#12): es la que leyó el panel y funciona como candado frente a
     // ventas simultáneas; no se edita, solo sube con cada cambio.

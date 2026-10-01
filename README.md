@@ -2,7 +2,7 @@
 
 Prototipo del curso TICS331 (equipo BBMVV). En el Sprint 1 una vecina busca un medicamento por nombre o principio activo, ve su precio y disponibilidad y genera un pedido. Todo funciona con **datos sintéticos**.
 
-> Estado actual (Sprint 1, en construcción): funcionan `GET /api/health`, `GET /api/medicamentos?q=` (búsqueda por nombre o principio activo, US-02), `POST /api/pedidos` (compra atómica, US-15) y `PUT /api/backoffice/medicamentos/:codigo` (actualizar precio y stock, US-13). Sigue respondiendo `501` el listado del backoffice (`GET /api/backoffice/medicamentos`). En el front, la pantalla de búsqueda (`/`) muestra tarjetas con nombre, principio activo, precio y disponibilidad, avisa cuando no hay coincidencias, marca «Sin stock» sin botón de compra y abre el selector de cantidad (`SelectorCantidad`) y, al continuar, la confirmación del pedido (`ConfirmarPedido`): resumen, botón de confirmar y, al terminar, el número de pedido con su total y el estado «Solicitud creada» (o el aviso de que ya no hay stock).
+> Estado actual (Sprint 1, en construcción): funcionan `GET /api/health`, `GET /api/medicamentos?q=` (búsqueda por nombre o principio activo, US-02), `POST /api/pedidos` (compra atómica, US-15) y `GET /api/backoffice/medicamentos` junto con `PUT /api/backoffice/medicamentos/:codigo` (listar y actualizar precio y stock, con candado de versión frente a ventas simultáneas, US-13). En el front, el panel de mantención (`/backoffice`) lista los medicamentos y deja editar su precio y stock, y la pantalla de búsqueda (`/`) muestra tarjetas con nombre, principio activo, precio y disponibilidad, avisa cuando no hay coincidencias, marca «Sin stock» sin botón de compra y abre el selector de cantidad (`SelectorCantidad`) y, al continuar, la confirmación del pedido (`ConfirmarPedido`): resumen, botón de confirmar y, al terminar, el número de pedido con su total y el estado «Solicitud creada» (o el aviso de que ya no hay stock).
 
 ## Requisitos
 
@@ -45,6 +45,7 @@ El `.env` no se sube al repositorio.
   ```bash
   curl -X PUT http://localhost:5173/api/backoffice/medicamentos/MED-001 -H "x-backoffice-token: <el valor de tu .env>" -H "Content-Type: application/json" -d '{"precioUnitario": 2100, "version": 0}'
   ```
+- **Panel de mantención:** en <http://localhost:5173/backoffice> la funcionaria escribe la clave del equipo (el valor de `BACKOFFICE_TOKEN` de tu `.env`; es simulada y solo vive en la memoria de la página, nunca se guarda en el navegador), ve el listado con el precio y el stock de cada medicamento, los edita y confirma con «Guardar cambios». Si el valor no es válido, el motivo aparece junto al campo y se mantiene el valor guardado. Si una venta cambió el medicamento mientras editaba, el panel avisa y recarga lo guardado para que pueda volver a intentarlo.
 - **Fuera del Sprint 1:** pagos, Praxsuite, SAP, WhatsApp, delivery e IA no están implementados.
 
 ## Estructura
@@ -62,8 +63,8 @@ backend/            Node + Express + better-sqlite3
   tests/            vitest + supertest
 frontend/           React + Vite + TypeScript
   src/pages/        "/" buscador y "/backoffice"
-  src/components/   componentes reutilizables (tarjeta de medicamento, selector de cantidad, confirmación del pedido)
-  src/lib/          utilidades (formato de pesos)
+  src/components/   componentes reutilizables (tarjeta de medicamento, selector de cantidad, confirmación del pedido, fila del panel de mantención)
+  src/lib/          cliente de la API y utilidades (formato de pesos)
 docs/               ADR, modelo de datos, backlog del sprint y trazabilidad de la verificación (docs/sprint-1/TRAZABILIDAD.md)
 ```
 

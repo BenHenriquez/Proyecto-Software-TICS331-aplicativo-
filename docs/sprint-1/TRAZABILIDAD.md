@@ -10,7 +10,14 @@ Leyenda de estado: ✅ comprobado · ⏳ pendiente · ➡️ lo cubre otra tarea
 | Criterio (fuente) | Comprobación | Tipo | Tarea | Estado |
 |---|---|---|---|---|
 | US-13 feliz: el cambio se guarda (Gherkin del issue #2) | `backend/tests/backofficeApi.test.js` → «escenario feliz: el cambio queda guardado» | automático | #11 | ✅ |
-| US-13 feliz: aparece de inmediato para la vecina | mismo archivo → «el cambio se ve de inmediato en lo que consulta la vecina» (vía `POST /api/pedidos`, que lee precio y stock en vivo) + `backend/tests/medicamentosApi.test.js` → «refleja al instante un cambio de precio y stock hecho en el backoffice» (vía la búsqueda, #7). De punta a punta con la búsqueda: `backend/tests/us13-mantener-stock.funcional.test.js` → «Escenario feliz» (precio, stock, stock 0, reponer, ambos a la vez). El panel (`/backoffice`) lo hace #13 | automático | #11, #7, #14 | ✅ compra, búsqueda y punta a punta · ➡️ panel en #13 |
+| US-13 feliz: aparece de inmediato para la vecina | mismo archivo → «el cambio se ve de inmediato en lo que consulta la vecina» (vía `POST /api/pedidos`, que lee precio y stock en vivo) + `backend/tests/medicamentosApi.test.js` → «refleja al instante un cambio de precio y stock hecho en el backoffice» (vía la búsqueda, #7). De punta a punta con la búsqueda: `backend/tests/us13-mantener-stock.funcional.test.js` → «Escenario feliz» (precio, stock, stock 0, reponer, ambos a la vez). El panel (`/backoffice`) hace el cambio desde la pantalla (#13, filas siguientes) | automático | #11, #7, #14 | ✅ compra, búsqueda y punta a punta · ✅ panel (#13) |
+| #13 el listado del panel: `GET /api/backoffice/medicamentos` con token simulado (401 sin clave), 200 con los 34 medicamentos activos, con `version`, sin campos internos, ordenado, y refleja un `PUT` y una venta | `backend/tests/backofficeListado.test.js` | automático | #13 | ✅ |
+| #13 US-13 feliz en el panel: editar precio y/o stock, guardar solo lo que cambió con la `version` leída, confirmación «Guardamos el cambio…», y lo guardado que se ve es lo que respondió el backend | `frontend/src/pages/Backoffice.test.tsx` → «escenario feliz…» (precio, stock a 0 → «Sin stock», ambos, segundo cambio con la version nueva, otra fila intacta, sin cambios, doble clic) | automático | #13 | ✅ |
+| #13 US-13 error en el panel: valor inválido (stock negativo, decimal o no numérico; precio vacío, no numérico o cero) se rechaza, el motivo aparece junto al campo (`role="alert"` + `aria-describedby`), lo guardado no cambia y no hay confirmación | mismo archivo → «escenario de error…» (6 valores + corregir y guardar, 404, red, 500 sin códigos) | automático | #13 | ✅ |
+| #13 ventas simultáneas en el panel (#12): el 409 avisa, recarga en silencio lo guardado (la venta) y el reintento usa la version nueva; un borrador de otra fila se conserva con su version de origen | mismo archivo → «ventas simultáneas (#12)» | automático | #13, #12 | ✅ |
+| #13 regla 5: la clave es simulada, se declara como tal en pantalla y README, vive solo en memoria (no `localStorage`, `sessionStorage` ni cookies) y «Salir» la olvida; una clave rechazada vuelve al ingreso con el mensaje del sistema | mismo archivo → «ingreso con la clave simulada del equipo» y «si la clave deja de servir» | automático | #13 | ✅ |
+| #13 estados: cargando, vacío, error (sin conexión / 500, con «Intentar de nuevo») y sin stock; mensajes en español sin códigos | mismo archivo → «estados del listado…» | automático | #13 | ✅ |
+| #13 solo teclado: Enter envía la clave, el foco pasa al listado, Tab recorre Salir → precio → stock → Guardar, Enter en un campo guarda y el foco no se pierde al guardar. Letra ≥ 18 px, botones ≥ 56 px, sin desborde a 500 px | mismo archivo → «uso solo con teclado» + prueba en navegador real (sección 2d) | automático + navegador | #13 | ✅ |
 | US-13 error: rechaza, informa el motivo y mantiene el valor anterior | mismo archivo → «escenario de error: valor inválido…» (18 valores inválidos, incluidos enormes y sobre los topes; campo válido + inválido, cuerpo vacío, sin cuerpo; topes exactos aceptados y guardados como enteros) | automático | #11 | ✅ |
 | Regla 3: el stock nunca queda negativo | casos `stock` `-1` y decimal + CHECK de la tabla | automático | #11 | ✅ |
 | Regla 5: token simulado desde `.env`, declarado en el README | «token simulado del backoffice» (401 sin token / incorrecto / vacío / servidor sin token; 401 antes que 400 y 404) + README | automático | #11 | ✅ |
@@ -152,6 +159,25 @@ Con `dev` en el commit `895415b` (incluye la búsqueda de Coaffy, #7 y #8), dato
 
 Con esto el criterio de #17 («selector de cantidad desde el resultado de búsqueda, con total a la vista y diseño accesible») queda cumplido en `dev`. La confirmación del pedido es #18.
 
+## 2d. Panel de mantención en navegador real (#13, 2026-10-01)
+
+Rama `feat/US-13-panel` (sobre `dev` con #12), `npm run seed` + `npm run dev` y Chrome controlado con Playwright (solo teclado salvo los clics del conflicto). La clave se leyó del `.env` y no se muestra. Capturas locales: caso feliz, error junto al campo, conflicto y ancho de 500 px.
+
+| Paso | Resultado |
+|---|---|
+| Primer Tab desde la carga | llega a «Saltar al contenido» |
+| Clave incorrecta + Enter | «Necesitas la clave del equipo de la farmacia para entrar aquí.» junto al campo; el foco queda en el campo |
+| Clave correcta + Enter | el foco pasa al listado; «Mostrando 34 medicamentos.» y 34 tarjetas |
+| Tab dentro del listado | Salir del backoffice → Precio por unidad (pesos) → Stock (unidades) → Guardar cambios |
+| **Feliz:** Losartán 50 mg, precio 2100 + Enter | «Guardamos el cambio de Losartán 50 mg.»; guardado: $2.100 y 120 unidades; el foco sigue en el campo |
+| **Error:** stock `-5`; precio vacío; precio `abc` | cada motivo aparece junto a su campo («El stock debe ser un número entero…», «El precio debe ser un número entero mayor que cero…»); lo guardado sigue en $2.100 y 120 unidades |
+| **Conflicto (#12):** se edita Amlodipino y una vecina compra 2 unidades antes de guardar | «El stock cambió mientras editabas. Recarga e intenta de nuevo.»; lo guardado pasa a 78 unidades; guardar de nuevo funciona (200 unidades) |
+| Medidas | letra mínima 20 px; campos 56 px; «Guardar cambios» 64 px; «Salir» 56 px; la letra más chica de la página es 20 px |
+| Ancho de 500 px (zoom 200 %) | sin scroll horizontal |
+| Búsqueda de la vecina («losartan 50») | muestra $2.100: el cambio del panel aparece de inmediato |
+| Almacenamiento del navegador | `localStorage` y `sessionStorage` vacíos, sin cookies |
+| Consola | solo los 4xx provocados a propósito (401, 400, 409) y el `favicon.ico` (404, ya existía) |
+
 ## 3. Los tests pueden fallar (mutaciones, sin commitear)
 
 Se rompió el código a propósito y se comprobó que al menos un test se pone rojo. Después se restauró el código original.
@@ -221,17 +247,38 @@ Mutaciones de las pruebas de US-13 de punta a punta (#14):
 | P4 cambiar el precio deja el stock en 0 | 2 |
 | P5 la búsqueda no refleja el stock real | 5 |
 
-Mutaciones del candado de versión (#12):
+Mutaciones del candado de versión (#12). Cuentan todos los tests del backend (180) con cada mutación aplicada:
 
 | Mutación | Tests en rojo |
 |---|---|
-| V1 el `UPDATE` sin `AND version` | 7 |
-| V2 siempre 404 cuando `changes === 0` | 6 |
-| V3 siempre 409 cuando `changes === 0` | 2 |
+| V1 el `UPDATE` sin `AND version` | 12 |
+| V2 siempre 404 cuando `changes === 0` | 13 |
+| V3 siempre 409 cuando `changes === 0` | 3 |
 | V4 el candado solo se aplica cuando viene `stock` | 1 (agregado tras la revisión A1: antes pasaba en verde) |
-| V5 `version` deja de ser obligatoria | 11 |
-| V6 `version` acepta texto | 7 |
-| V7 el cambio no sube `version` | 8 |
+| V5 `version` deja de ser obligatoria | 10 |
+| V6 `version` acepta texto | 6 |
+| V7 el cambio no sube `version` | 12 |
+
+Mutaciones del panel de mantención (#13). Cuentan los 42 tests de `Backoffice.test.tsx` con cada mutación aplicada. Las mutaciones se aplicaron leyendo y escribiendo en UTF-8: una primera tanda con la lectura predeterminada de Windows PowerShell corrompió las tildes y dio conteos inflados, por eso se repitió entera:
+
+| Mutación | Tests en rojo |
+|---|---|
+| F1 no se envía la `version` | 8 |
+| F2 se envían siempre precio y stock | 4 |
+| F3 la clave se guarda en `localStorage` | 1 en el test de memoria (con almacenamientos falsos); con el `localStorage` real de este entorno fallan casi todos porque lanza error |
+| F4 se muestra el borrador en vez de la respuesta del backend | 2 (agregado tras la revisión A1: antes pasaba en verde) |
+| F5 no se recarga tras el 409 | 2 |
+| F6 la recarga pisa los borradores | 1 (agregado tras A1) |
+| F7 el error del stock no se muestra junto al campo | 4 |
+| F8 `disabled` en vez de `aria-disabled` (se pierde el foco) | 1 |
+| F9 un texto no numérico se envía como `NaN` | 6 |
+| F10 sin protección de doble clic | 1 |
+| F11 «Salir» no borra el campo de la clave | 2 (la variante «no poner `sesion` en null» es equivalente: `sesion` se reescribe en cada ingreso) |
+| F12 el reintento usa la version recargada en vez de la de origen | 1 |
+| F13 un punto de miles se lee como decimal («10.000» → 10, hallazgo A2) | 3 |
+| F14 la respuesta de una sesión anterior se aplica igual (hallazgo A2) | 1 |
+| F15 un guardado en curso bloquea las demás filas (hallazgo A2) | 1 |
+| F16 «Salir» no devuelve el foco al campo de la clave (hallazgo A2) | 1 |
 
 ## 4. Revisiones con IA (advisor con Opus)
 
@@ -240,6 +287,8 @@ Mutaciones del candado de versión (#12):
 | A1 — tests de #11 antes de implementar | ¿Falta algún escenario del Gherkin? ¿Algún test no puede fallar? | Se quitó `version` del test de campos ignorados (es de #12), se cambió la prueba «lo que verá la búsqueda» por una real vía compra, se eliminó un test que no podía fallar y se agregó «401 antes que 400/404» |
 | A2 — implementación de #11 | ¿Fuera de alcance, regresiones, secretos, tests débiles? | Faltaba detectar un `UPDATE` sin `WHERE` (M9): corregido. Se alineó el modelo de datos sobre `version` y el ejemplo del README para PowerShell |
 | A1 — tests de #17 antes del componente | ¿Escenarios sin test? ¿Tests que no pueden fallar? | El caso de «1.5» podía pasar por el motivo equivocado (jsdom vacía el campo): se asigna el valor completo y se comprueba. Se agregó que los botones solo aparecen bloqueados en los límites. Las flechas del teclado y las medidas se comprobaron en navegador real (sección 2b) |
+| A2 — implementación del panel (#13) | ¿Carreras o estados atascados? ¿Reglas del CLAUDE.md, accesibilidad, regresiones, tests frágiles? | **Hallazgo alto:** «10.000» (diez mil en Chile) se convertía en 10, un entero válido que el backend aceptaba: ahora solo los enteros se envían como número y lo demás va tal cual para que el backend lo rechace (F13). Además: guardar en una segunda fila mientras otra guardaba se descartaba sin aviso (ahora se guarda por fila, F15), la respuesta de un guardado tras «Salir» podía dejar un aviso viejo (F14), «Salir» y el error de carga dejaban el foco en el `body` (F16), los 34 botones de guardar se llamaban igual (ahora incluyen el nombre del medicamento) y el 409 pedía recargar algo que el panel ya había recargado (se agregó una ayuda). También se corrigió el README, que aún decía que el listado respondía 501 |
+| A1 — tests del panel (#13) antes de implementar | ¿Escenarios sin test? ¿Tests que no pueden fallar o que fuerzan una implementación? | El test del doble clic no podía pasar con ninguna implementación (el botón cambia de nombre al guardar): se reescribió con el mismo botón y `aria-disabled`. Lo guardado que se ve venía siempre igual a lo escrito (P4 pasaba en verde): el fake ahora responde con un stock distinto. Faltaba el caso de un borrador de otra fila cuya version cambió en la recarga (P6) y que «Salir» olvide la clave de verdad. Se agregaron el 404, que `aria-invalid` se limpie y que el aviso del 409 y el foco sobrevivan a la recarga |
 | A2 — implementación de #12 | ¿El candado es atómico? ¿Capas, reglas del CLAUDE.md, regresiones, tests frágiles? | Sin hallazgos altos. Se agregó una guarda en el repository (una `version` ausente se enviaría como NULL y parecería un 409) con su test, y la ejecución en vivo con `version` (sección 2a), porque la evidencia de la sección 2 era anterior a #12 |
 | A1 — tests de #12 antes de implementar | ¿Falta algún escenario del contrato? ¿Algún test no puede fallar? ¿Son confiables los tests con procesos reales? | Se agregó el 409 para un cambio de solo precio (la mutación V4 pasaba en verde), la validación de `version` antes del 404, que `errores` tenga solo `version`, y que el 409 de «otro medicamento» se compruebe de verdad. Los tests concurrentes con reintentos pasaban con o sin candado: se dejaron como pruebas de robustez y se agregó una prueba con 3 procesos reales que usa una versión vieja |
 | A1 — tests de #18 antes de implementar | ¿Escenarios sin test? ¿Tests que no pueden fallar o que fuerzan la estructura? ¿Riesgos funcionales sin cubrir? | Faltaban tres cosas graves: la cabecera `Content-Type: application/json` (sin ella el backend leería el cuerpo vacío y nadie podría comprar), un 201 con forma inesperada (no debe ofrecer reintentar: el pedido ya descontó stock y se crearía otro) y que el buscador no se mueva mientras se confirma (el resultado se perdería). También se decidió que tras un rechazo por stock solo se ofrezca volver a los resultados refrescados (con «Cambiar cantidad» la vecina reabriría el selector con el stock viejo), se protegió «Intentar de nuevo» contra el doble clic, se exigió que el selector desaparezca al abrir el resumen y que cada valor se compruebe dentro de su fila (el total estimado y el del backend valen lo mismo en varios tests) |
@@ -267,7 +316,8 @@ Con `AND version = ?` en el `UPDATE`, `changes === 0` significa «no existe» o 
 ## 6. Pendiente de completar
 
 - ~~A3 antes del PR a `main` y verificación en clon limpio de `dev`~~: hechos (A3 con el advisor Opus y clon limpio de `origin/dev` el 2026-09-30).
-- **#18 (confirmación del pedido) listo para revisión:** el Gherkin de US-15 se ejecuta completo desde la pantalla (sección 2e). Pasa a Done cuando su PR a `dev` se mergee. Al integrar #18 y #13 (PR de `feat/US-13-panel`), actualizar la línea «Riesgo del Sprint» de esta sección: ya no queda ninguna tarea abierta del Sprint 1.
+- **#18 (confirmación del pedido) listo para revisión:** el Gherkin de US-15 se ejecuta completo desde la pantalla (sección 2e). Ya está en `dev` (PR #30).
 - **#17 ya se puede cerrar:** el selector está conectado a la búsqueda (#26) y el flujo se verificó con teclado en navegador real (sección 2c). Pasa a Done cuando el PR `dev → main` se mergee. La confirmación del pedido es #18 (Vicenlol09) y no bloquea #17.
 - **#14 ya se puede cerrar tras #12.** Hecho: cambio visible en la búsqueda, valores inválidos que dejan el anterior intacto, cambios mientras ocurren ventas y, con #12, la actualización con **datos viejos** (409; el `it.skip` se activó). Pasa a Done cuando el PR de #12 se mergee.
-- **Riesgo del Sprint:** #12, #13 y #18 (Vicenlol09) siguen en Backlog. Sin #18 la demostración termina en «La confirmación del pedido estará disponible muy pronto»; sin #13 el Gherkin de US-13 no puede ejecutarse «en el panel de mantención».
+- **#13 (panel de mantención) listo para revisión:** el Gherkin de US-13 ya se ejecuta en el panel (sección 2d). Pasa a Done cuando su PR a `dev` se mergee.
+- **Riesgo del Sprint:** resuelto. Con #12, #13 y #18 en `dev` ya no queda ninguna tarea abierta del Sprint 1 y la demostración recorre el ciclo completo: buscar → ver precio y stock → elegir cantidad → confirmar → pedido con total y estado «Solicitud creada», más el panel de mantención.
