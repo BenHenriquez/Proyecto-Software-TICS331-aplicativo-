@@ -10,7 +10,7 @@ Leyenda de estado: ✅ comprobado · ⏳ pendiente · ➡️ lo cubre otra tarea
 | Criterio (fuente) | Comprobación | Tipo | Tarea | Estado |
 |---|---|---|---|---|
 | US-13 feliz: el cambio se guarda (Gherkin del issue #2) | `backend/tests/backofficeApi.test.js` → «escenario feliz: el cambio queda guardado» | automático | #11 | ✅ |
-| US-13 feliz: aparece de inmediato para la vecina | mismo archivo → «el cambio se ve de inmediato en lo que consulta la vecina» (vía `POST /api/pedidos`, que lee precio y stock en vivo) + `backend/tests/medicamentosApi.test.js` → «refleja al instante un cambio de precio y stock hecho en el backoffice» (vía la búsqueda, #7). La prueba del panel completo queda en #14 | automático | #11, #7 → #14 | ✅ compra y búsqueda · ➡️ panel en #14 |
+| US-13 feliz: aparece de inmediato para la vecina | mismo archivo → «el cambio se ve de inmediato en lo que consulta la vecina» (vía `POST /api/pedidos`, que lee precio y stock en vivo) + `backend/tests/medicamentosApi.test.js` → «refleja al instante un cambio de precio y stock hecho en el backoffice» (vía la búsqueda, #7). De punta a punta con la búsqueda: `backend/tests/us13-mantener-stock.funcional.test.js` → «Escenario feliz» (precio, stock, stock 0, reponer, ambos a la vez). El panel (`/backoffice`) lo hace #13 | automático | #11, #7, #14 | ✅ compra, búsqueda y punta a punta · ➡️ panel en #13 |
 | US-13 error: rechaza, informa el motivo y mantiene el valor anterior | mismo archivo → «escenario de error: valor inválido…» (18 valores inválidos, incluidos enormes y sobre los topes; campo válido + inválido, cuerpo vacío, sin cuerpo; topes exactos aceptados y guardados como enteros) | automático | #11 | ✅ |
 | Regla 3: el stock nunca queda negativo | casos `stock` `-1` y decimal + CHECK de la tabla | automático | #11 | ✅ |
 | Regla 5: token simulado desde `.env`, declarado en el README | «token simulado del backoffice» (401 sin token / incorrecto / vacío / servidor sin token; 401 antes que 400 y 404) + README | automático | #11 | ✅ |
@@ -34,6 +34,9 @@ Leyenda de estado: ✅ comprobado · ⏳ pendiente · ➡️ lo cubre otra tarea
 | Front: solo teclado (Tab, Enter, flechas), letra ≥ 18 px, contraste, zoom 200 % | mismo archivo → «uso solo con teclado» + prueba en navegador real (sección 2b) | automático + navegador | #17 | ✅ |
 | Regla 1: precio y total los calcula el backend | `onContinuar` se prueba con `toHaveBeenCalledWith(2)`: entrega solo la cantidad, nunca precio ni total; el total del selector es informativo y así se dice en pantalla. Regresión: `pedidosApi.test.js` | automático | #17 | ✅ |
 | El selector se conecta a la pantalla de búsqueda y a la confirmación | `frontend/src/pages/Buscador.test.tsx` → «elegir un medicamento disponible…» (búsqueda → selector → volver). La confirmación queda en #18 | automático | #8 → #18 | ✅ búsqueda · ➡️ confirmación en #18 |
+| US-13 error de punta a punta: la búsqueda sigue mostrando el valor anterior | `us13-mantener-stock.funcional.test.js` → «Escenario de error» (7 valores inválidos: stock negativo, decimal y no numérico; precio vacío, no numérico, cero y enorme) | automático | #14 | ✅ |
+| US-13 cambios mientras ocurren ventas: el cambio de precio no pisa el stock y no hay errores | mismo archivo → «Actualización a la vez que varias vecinas compran» (6 procesos con conexiones SQLite propias + el `PUT` en el mismo instante: stock 114, version 7, totales cuadran; y cambio de stock sin stock negativo ni errores) | automático (procesos reales) | #14 | ✅ |
+| US-13 una actualización con datos viejos no pisa una venta (409) | mismo archivo → test `it.skip` «una actualización con una versión vieja se rechaza con 409…». Hoy el `PUT` fija el stock sin mirar `version` y fallaría con «200 en vez de 409»; se activa con #12 | automático (contrato) | #12 → #14 | ⏳ |
 | Fuera de alcance del Sprint 1 (Praxsuite, WhatsApp, IA…) | revisión del diff | revisión | todas | ⏳ al abrir el PR |
 
 ## 2. Ejecución en vivo del Gherkin de US-13 (2026-09-30)
@@ -87,6 +90,24 @@ Componente montado temporalmente en la página de búsqueda (sin commitear) y pr
 
 Pendiente para una persona del equipo: probarlo con lector de pantalla (queda para US-07, fuera del Sprint 1) y con una persona usuaria real.
 
+## 2c. Flujo integrado búsqueda → selector en navegador real (2026-09-30, noche)
+
+Con `dev` en el commit `895415b` (incluye la búsqueda de Coaffy, #7 y #8), datos del seed, `npm run dev` y Chromium (Playwright). Solo teclado.
+
+| Paso | Resultado |
+|---|---|
+| Escribir «losartan» y Enter | «Encontramos 2 medicamentos.» (se anuncia en una región viva) |
+| Tab hasta «Elegir cantidad» y Enter | el foco pasa a la zona «Elegir cantidad de Losartán 100 mg»; el selector muestra ese medicamento, cantidad 1, total $2.890 |
+| «+» dos veces con Enter y «Continuar con el pedido» | cantidad 3, total $8.670, aviso «Elegiste 3 unidades. La confirmación del pedido estará disponible muy pronto.» |
+| «Volver a los resultados» | el foco regresa a la tarjeta que se había elegido |
+| Elegir otro medicamento (Losartán 50 mg) | la cantidad vuelve a 1 (no arrastra la anterior) |
+| Buscar un medicamento sin stock (Fluoxetina, MED-014) | dice «Sin stock» y no hay ningún botón de compra |
+| Buscar «zzzzzz» | «No encontramos ese medicamento. Revisa cómo está escrito o prueba buscando por su principio activo.» |
+| Zoom 200 % con el selector abierto | sin scroll horizontal |
+| Errores de consola | ninguno |
+
+Con esto el criterio de #17 («selector de cantidad desde el resultado de búsqueda, con total a la vista y diseño accesible») queda cumplido en `dev`. La confirmación del pedido es #18.
+
 ## 3. Los tests pueden fallar (mutaciones, sin commitear)
 
 Se rompió el código a propósito y se comprobó que al menos un test se pone rojo. Después se restauró el código original.
@@ -122,6 +143,16 @@ Mutaciones del selector de cantidad (#17):
 | S7 acepta cantidad 0 | 2 |
 | S8 sin stock sigue mostrando el selector | 1 |
 
+Mutaciones de las pruebas de US-13 de punta a punta (#14):
+
+| Mutación | Tests en rojo |
+|---|---|
+| P1 `disponible` siempre verdadero en la búsqueda | 2 |
+| P2 el `PUT` no persiste el precio | 4 |
+| P3 el `UPDATE` del `PUT` sin `WHERE` | 1 |
+| P4 cambiar el precio deja el stock en 0 | 2 |
+| P5 la búsqueda no refleja el stock real | 5 |
+
 ## 4. Revisiones con IA (advisor con Opus)
 
 | Punto | Qué se consultó | Resultado |
@@ -142,7 +173,7 @@ Un subagente con Opus, que solo vio el diff y los criterios (no la conversación
 | La tabla de `MODELO_DE_DATOS.md` seguía con `version` obligatoria | Sí | `version?` y nota de que la exige #12 |
 | El selector no se reiniciaba al cambiar de medicamento | Sí: test en rojo antes del arreglo | `key` por código |
 | Un test del selector comprobaba la etiqueta HTML y no el comportamiento | Sí | Ahora prueba la región en vivo (`role="status"`, `aria-live`) y su texto |
-| El selector no está montado en ninguna pantalla | Sí: depende de #8 | Ver la nota de la sección 6 |
+| El selector no está montado en ninguna pantalla | Sí: dependía de #8 | Resuelto: Coaffy lo conectó a la búsqueda en #26 (sección 2c) |
 | Comparación del token con `===`, `CANTIDAD_MAXIMA` duplicada en front y back, el `PUT` edita medicamentos inactivos | Sí | Se aceptan como deuda conocida del prototipo (token simulado; máximo espejo comentado; inactivos irrelevantes en el Sprint 1) |
 
 ## 5. Nota para #12 (Vicenlol09)
@@ -152,4 +183,6 @@ Cuando #12 agregue `AND version = ?` al `UPDATE`, `changes === 0` ya no signific
 ## 6. Pendiente de completar
 
 - ~~A3 antes del PR a `main` y verificación en clon limpio de `dev`~~: hechos (A3 con el advisor Opus y clon limpio de `origin/dev` el 2026-09-30).
-- **El selector todavía no está montado en ninguna pantalla.** El componente está completo y probado, pero #17 pide el selector «desde el resultado de búsqueda», que depende de #8 (pantalla de búsqueda) y de #18 (confirmación). Por eso el PR debe usar `Refs #17` y **no** `Closes #17`: la tarjeta #17 no pasa a Done hasta conectarlo y ejecutar el escenario en vivo. #11 sí puede cerrarse, salvo la parte «aparece en la búsqueda», que se verifica en #14.
+- **#17 ya se puede cerrar:** el selector está conectado a la búsqueda (#26) y el flujo se verificó con teclado en navegador real (sección 2c). Pasa a Done cuando el PR `dev → main` se mergee. La confirmación del pedido es #18 (Vicenlol09) y no bloquea #17.
+- **#14 queda en dos partes.** Hecho: cambio visible en la búsqueda, valores inválidos que dejan el anterior intacto y cambios mientras ocurren ventas (sin errores y sin pisar el stock al cambiar el precio). Pendiente: «actualización hecha mientras ocurre una venta» con **datos viejos**, que depende de #12 (Vicenlol09): hoy el `PUT` puede pisar una venta. El test ya está escrito como `it.skip` en `us13-mantener-stock.funcional.test.js`; al implementar #12 se le quita el `.skip`. Por eso el PR usa `Refs #14`, no `Closes #14`.
+- **Riesgo del Sprint:** #12, #13 y #18 (Vicenlol09) siguen en Backlog. Sin #18 la demostración termina en «La confirmación del pedido estará disponible muy pronto»; sin #13 el Gherkin de US-13 no puede ejecutarse «en el panel de mantención».
