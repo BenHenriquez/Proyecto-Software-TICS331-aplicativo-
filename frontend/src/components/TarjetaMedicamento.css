@@ -1,0 +1,72 @@
+/* Tarjeta de resultado de búsqueda (US-02, #8 y #9). Usa los tokens de estilos.css.
+   Adultos mayores: letra >= 20 px, botón >= 56 px, alto contraste; el estado se dice con texto, no solo con color. */
+.tarjeta {
+  padding: 1rem 1.25rem 1.25rem;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: var(--fondo);
+}
+
+.tarjeta__nombre {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.tarjeta__datos {
+  margin: 0 0 0.75rem;
+}
+
+.tarjeta__datos div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+}
+
+.tarjeta__datos dt {
+  font-weight: 700;
+}
+
+.tarjeta__datos dt::after {
+  content: ':';
+}
+
+.tarjeta__datos dd {
+  margin: 0;
+}
+
+.tarjeta__precio {
+  font-weight: 800;
+}
+
+.tarjeta__estado {
+  display: inline-block;
+  margin: 0 0 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border: 2px solid;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.tarjeta__estado--disponible {
+  border-color: #0b5d1e;
+  background: #e7f4ea;
+  color: #0b4a18;
+}
+
+/* Mismos colores que la etiqueta «Sin stock» del selector de cantidad. */
+.tarjeta__estado--sin-stock {
+  border-color: #8a0000;
+  background: #fdecec;
+  color: #5c0000;
+}
+
+.tarjeta__nota {
+  margin: 0;
+}
+
+.tarjeta__elegir {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+}
