@@ -16,12 +16,14 @@ describe('PUT /api/backoffice/medicamentos/:codigo', () => {
     db.prepare('SELECT nombre, precio_unitario, stock, version FROM medicamentos WHERE codigo = ?').get(codigo);
   // Por defecto envía el token correcto; `{ token: undefined }` significa "sin header" (no se usa
   // un valor por defecto de desestructuración porque reemplazaría el undefined por el token).
+  // Como el panel (#12), envía la `version` que acaba de leer; un test la reemplaza escribiendo
+  // `version` en el cuerpo (`version: undefined` = no se envía).
   const actualizar = (cuerpo, opciones = {}) => {
     const { codigo = CODIGO } = opciones;
     const token = 'token' in opciones ? opciones.token : TOKEN;
     const peticion = request(app).put(`/api/backoffice/medicamentos/${codigo}`);
     if (token !== undefined) peticion.set('x-backoffice-token', token);
-    return peticion.send(cuerpo);
+    return peticion.send({ version: fila(codigo)?.version, ...cuerpo });
   };
 
   beforeEach(() => {
@@ -136,7 +138,7 @@ describe('PUT /api/backoffice/medicamentos/:codigo', () => {
     });
 
     it('ignora campos que no se pueden editar desde el panel', async () => {
-      // `version` no se prueba aquí: es el candado de #12 (ventas simultáneas) y lo define esa tarea.
+      // `version` no se edita: es el candado de #12 y solo sube por el propio cambio (ver abajo).
       const antes = fila();
       const res = await actualizar({ precioUnitario: 2500, nombre: 'Otro nombre', codigo: 'MED-999' });
 
@@ -259,12 +261,126 @@ describe('PUT /api/backoffice/medicamentos/:codigo', () => {
   });
 
   describe('medicamento inexistente', () => {
-    it('responde 404 no_existe', async () => {
-      const res = await actualizar({ stock: 5 }, { codigo: 'MED-999' });
+    it.each([0, 5])('responde 404 no_existe aunque la version enviada sea %i (no es un conflicto)', async (version) => {
+      const res = await actualizar({ stock: 5, version }, { codigo: 'MED-999' });
 
       expect(res.status).toBe(404);
       expect(res.body.motivo).toBe('no_existe');
       expect(typeof res.body.mensaje).toBe('string');
+    });
+  });
+
+  // #12 Protección frente a ventas simultáneas (MODELO_DE_DATOS.md §5): el panel envía la `version`
+  // que leyó y el UPDATE exige esa misma versión; si alguien (una venta) cambió el producto, 409.
+  describe('candado de version frente a ventas simultáneas (#12)', () => {
+    const MENSAJE_CONFLICTO = 'El stock cambió mientras editabas. Recarga e intenta de nuevo.';
+    const comprar = (cantidad, codigo = CODIGO) => request(app).post('/api/pedidos').send({ codigo, cantidad });
+
+    it('con la version que leyó guarda el cambio y sube la version en 1', async () => {
+      const { version } = fila();
+      const res = await actualizar({ stock: 50, version });
+
+      expect(res.status).toBe(200);
+      expect(res.body.medicamento).toMatchObject({ stock: 50, version: version + 1 });
+      expect(fila()).toMatchObject({ stock: 50, version: version + 1 });
+    });
+
+    it('si una venta cambió el medicamento mientras editaba, responde 409 y no guarda nada', async () => {
+      const { version } = fila(); // el panel lee: stock 120, version 0
+      await comprar(2); // mientras edita se vende: stock 118, version 1
+      const despuesDeLaVenta = fila();
+
+      const res = await actualizar({ precioUnitario: 2500, stock: 150, version });
+
+      expect(res.status).toBe(409);
+      expect(res.body.motivo).toBe('version_cambiada');
+      expect(res.body.mensaje).toBe(MENSAJE_CONFLICTO);
+      expect(fila()).toEqual(despuesDeLaVenta); // ni el precio ni el stock, y la venta no se pisa
+    });
+
+    it('dos ediciones con la misma version: la primera se guarda y la segunda recibe 409', async () => {
+      const { version } = fila();
+
+      const primera = await actualizar({ stock: 50, version });
+      const segunda = await actualizar({ stock: 80, version });
+
+      expect(primera.status).toBe(200);
+      expect(segunda.status).toBe(409);
+      expect(fila()).toMatchObject({ stock: 50, version: version + 1 });
+    });
+
+    it('tras el 409, con la version nueva la misma edición se guarda', async () => {
+      const { version } = fila();
+      await comprar(2);
+      expect((await actualizar({ stock: 150, version })).status).toBe(409);
+
+      const res = await actualizar({ stock: 150 }); // el helper lee la version actual (la "recarga")
+
+      expect(res.status).toBe(200);
+      expect(fila()).toMatchObject({ stock: 150, version: 2 });
+    });
+
+    it('una version que no es la actual (ni anterior ni futura) se rechaza con 409', async () => {
+      const { version } = fila();
+
+      const futura = await actualizar({ stock: 50, version: version + 5 });
+
+      expect(futura.status).toBe(409);
+      expect(fila()).toMatchObject({ stock: 120, version });
+    });
+
+    it.each([
+      ['no se envía', undefined],
+      ['es negativa', -1],
+      ['es decimal', 0.5],
+      ['es texto', 'abc'],
+      ['es texto numérico', '0'],
+      ['es nula', null],
+      ['está fuera del rango de enteros seguros', 2 ** 53],
+    ])('responde 400 con el motivo en `version` si %s, y no guarda nada', async (_caso, version) => {
+      const antes = fila();
+      const res = await actualizar({ stock: 50, version });
+
+      expect(res.status).toBe(400);
+      expect(res.body.motivo).toBe('datos_invalidos');
+      expect(res.body.errores.version).toBeTypeOf('string');
+      expect(fila()).toEqual(antes);
+    });
+
+    it('un valor inválido se informa con 400 aunque la version sea vieja (la validación va antes que el candado)', async () => {
+      const { version } = fila();
+      await comprar(1);
+
+      const res = await actualizar({ stock: -1, version });
+
+      expect(res.status).toBe(400);
+      expect(res.body.errores.stock).toBeTypeOf('string');
+    });
+
+    it('el conflicto afecta solo al medicamento editado: otro medicamento sigue editable con su version', async () => {
+      const { version } = fila();
+      await comprar(1);
+      await actualizar({ stock: 150, version }); // 409 sobre MED-001
+
+      const otro = await actualizar({ stock: 7 }, { codigo: 'MED-002' });
+
+      expect(otro.status).toBe(200);
+      expect(fila('MED-002').stock).toBe(7);
+    });
+
+    it('los mensajes del conflicto y de la version son texto simple en español', async () => {
+      const { version } = fila();
+      await comprar(1);
+      const conflicto = await actualizar({ stock: 50, version });
+      const sinVersion = await actualizar({ stock: 50, version: undefined });
+      const textos = [conflicto.body.mensaje, sinVersion.body.errores.version];
+
+      for (const texto of textos) {
+        expect(texto).toMatch(/^[A-ZÁÉÍÓÚ¿¡]/);
+        expect(texto).toMatch(/[.!?]$/);
+        expect(texto).not.toMatch(/undefined|null|NaN|error|exception|\d{3}/i);
+        expect(texto).not.toMatch(/\b[A-Z_]{4,}\b/);
+      }
     });
   });
 });

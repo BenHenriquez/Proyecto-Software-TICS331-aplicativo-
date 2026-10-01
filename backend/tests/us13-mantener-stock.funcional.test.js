@@ -24,9 +24,13 @@ describe('US-13 · Mantener stock (de punta a punta con la búsqueda de US-02)',
   let app;
   const buscar = (q) => request(app).get('/api/medicamentos').query({ q });
   const enBusqueda = async (q, codigo) => (await buscar(q)).body.resultados.find((m) => m.codigo === codigo);
-  const actualizar = (codigo, cuerpo) =>
-    request(app).put(`/api/backoffice/medicamentos/${codigo}`).set('x-backoffice-token', TOKEN).send(cuerpo);
   const fila = (codigo) => db.prepare('SELECT * FROM medicamentos WHERE codigo = ?').get(codigo);
+  // Como el panel (#12): envía la `version` que acaba de leer, salvo que el test indique otra.
+  const actualizar = (codigo, cuerpo) =>
+    request(app)
+      .put(`/api/backoffice/medicamentos/${codigo}`)
+      .set('x-backoffice-token', TOKEN)
+      .send({ version: fila(codigo)?.version, ...cuerpo });
 
   beforeEach(() => {
     ({ db } = sembrar({ rutaDb: ':memory:', rutaCsv: config.rutaSemilla }));
@@ -143,11 +147,9 @@ describe('US-13 · Mantener stock (de punta a punta con la búsqueda de US-02)',
       expect(await enBusqueda('Losartán', 'MED-001')).toMatchObject({ stock: 6, disponible: true });
     });
 
-    // Contrato de #12 (Vicenlol09), según MODELO_DE_DATOS.md §5. Hoy el PUT fija el stock sin mirar
-    // `version`, así que una actualización hecha con datos viejos PISA la venta (se pierden 2 unidades).
-    // Se activa con #12: quitar `.skip`. Si #12 elige el ajuste relativo ("sumar 5"), se cambia
-    // §5 y este test en el mismo PR.
-    it.skip('una actualización con una versión vieja se rechaza con 409 y no pisa la venta (se activa con #12)', async () => {
+    // #12 (MODELO_DE_DATOS.md §5): el PUT exige la `version` que leyó el panel. Sin el candado, una
+    // actualización hecha con datos viejos PISARÍA la venta (se perderían 2 unidades).
+    it('una actualización con una versión vieja se rechaza con 409 y no pisa la venta', async () => {
       // Dado que la funcionaria abrió el panel con MED-001 en stock 120, version 0
       const { version } = fila('MED-001');
       expect(version).toBe(0);
@@ -163,6 +165,19 @@ describe('US-13 · Mantener stock (de punta a punta con la búsqueda de US-02)',
       expect(res.status).toBe(409);
       expect(res.body.mensaje).toBe('El stock cambió mientras editabas. Recarga e intenta de nuevo.');
       expect(fila('MED-001')).toMatchObject({ stock: 118, version: 1 });
+      // Y la búsqueda muestra el stock real, no el que la funcionaria quiso guardar
+      expect(await enBusqueda('Losartán', 'MED-001')).toMatchObject({ stock: 118 });
+    });
+
+    it('tras el 409 la funcionaria recarga, guarda con la versión nueva y la búsqueda muestra su cambio', async () => {
+      const { version } = fila('MED-001');
+      await comprar('MED-001', 2);
+      expect((await actualizar('MED-001', { stock: 150, version })).status).toBe(409);
+
+      const res = await actualizar('MED-001', { stock: 150 }); // versión recién leída
+
+      expect(res.status).toBe(200);
+      expect(await enBusqueda('Losartán', 'MED-001')).toMatchObject({ stock: 150, disponible: true });
     });
   });
 });
@@ -193,6 +208,21 @@ describe('US-13 · Actualización a la vez que varias vecinas compran (conexione
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
+  // Como el panel (#12): lee la version, guarda y, si una venta se adelantó (409), recarga y reintenta.
+  // Un 409 aquí es el comportamiento correcto (no pisar la venta), no un error.
+  async function guardarConReintentos(codigo, cuerpo) {
+    for (let intento = 1; intento <= 20; intento++) {
+      const { version } = db.prepare('SELECT version FROM medicamentos WHERE codigo = ?').get(codigo);
+      const res = await fetch(`${url}/api/backoffice/medicamentos/${codigo}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', 'x-backoffice-token': TOKEN },
+        body: JSON.stringify({ ...cuerpo, version }),
+      });
+      if (res.status !== 409) return res.status;
+    }
+    return 409;
+  }
+
   it(
     'cambiar el precio justo cuando 6 vecinas compran no pisa el stock y no produce errores',
     async () => {
@@ -205,12 +235,7 @@ describe('US-13 · Actualización a la vez que varias vecinas compran (conexione
       // ...y en ese mismo instante la funcionaria cambia el precio por el backoffice.
       const cambioDePrecio = (async () => {
         await new Promise((resolve) => setTimeout(resolve, Math.max(0, inicio - Date.now())));
-        const res = await fetch(`${url}/api/backoffice/medicamentos/MED-001`, {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json', 'x-backoffice-token': TOKEN },
-          body: JSON.stringify({ precioUnitario: 2500 }),
-        });
-        return res.status;
+        return guardarConReintentos('MED-001', { precioUnitario: 2500 });
       })();
 
       const [estadoDelCambio, ...resultados] = await Promise.all([
@@ -244,12 +269,7 @@ describe('US-13 · Actualización a la vez que varias vecinas compran (conexione
       );
       const cambioDeStock = (async () => {
         await new Promise((resolve) => setTimeout(resolve, Math.max(0, inicio - Date.now())));
-        const res = await fetch(`${url}/api/backoffice/medicamentos/PRB-002`, {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json', 'x-backoffice-token': TOKEN },
-          body: JSON.stringify({ stock: 3 }),
-        });
-        return res.status;
+        return guardarConReintentos('PRB-002', { stock: 3 });
       })();
 
       const [estadoDelCambio, ...resultados] = await Promise.all([
