@@ -1,0 +1,103 @@
+/* Pantalla de confirmación del pedido (US-15, #18). Usa los tokens de estilos.css.
+   Adultos mayores: letra >= 20 px, botones >= 64 px, alto contraste y foco siempre visible. */
+.confirmar {
+  display: grid;
+  gap: 1rem;
+  max-width: 32rem;
+  padding: 1rem 1.25rem 1.5rem;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: var(--fondo);
+}
+
+.confirmar:focus {
+  outline: none;
+}
+
+.confirmar__titulo {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.confirmar__datos {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--suave);
+  border-radius: 8px;
+}
+
+.confirmar__datos div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+}
+
+.confirmar__datos dt {
+  font-weight: 700;
+}
+
+.confirmar__datos dt::after {
+  content: ':';
+}
+
+.confirmar__datos dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.confirmar__nota {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.confirmar__error {
+  padding: 0.5rem 0.75rem;
+  border-left: 6px solid #8a0000;
+  background: #fdecec;
+  color: #5c0000;
+  font-weight: 700;
+}
+
+.confirmar__error p {
+  margin: 0;
+}
+
+.confirmar__error p + p {
+  margin-top: 0.5rem;
+}
+
+.confirmar__error-ayuda {
+  font-weight: 400;
+}
+
+/* Solo para lector de pantalla: anuncia «Confirmando…» y el número de pedido al terminar. */
+.confirmar__anuncio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.confirmar__principal,
+.confirmar__secundario {
+  width: 100%;
+  min-height: 64px;
+  font-size: 1.3rem;
+}
+
+/* aria-disabled no pinta nada por defecto: se ve apagado pero sigue recibiendo el foco. */
+.confirmar [aria-disabled='true'] {
+  background: #e3e8ee;
+  border: 2px dashed var(--borde);
+  color: #3a3a3a;
+  cursor: progress;
+}
+
+.confirmar__secundario {
+  justify-self: stretch;
+}
