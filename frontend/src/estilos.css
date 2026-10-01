@@ -135,6 +135,14 @@ button {
   cursor: pointer;
 }
 
+/* aria-disabled no pinta nada por defecto: un botón que no funciona se ve apagado pero sigue recibiendo el foco. */
+button[aria-disabled='true'] {
+  background: #e3e8ee;
+  border: 2px dashed var(--borde);
+  color: #3a3a3a;
+  cursor: not-allowed;
+}
+
 .aviso {
   background: var(--aviso-fondo);
   border-left: 6px solid var(--texto);
