@@ -198,34 +198,38 @@ Mutaciones de las pruebas de US-13 de punta a punta (#14):
 | P4 cambiar el precio deja el stock en 0 | 2 |
 | P5 la búsqueda no refleja el stock real | 5 |
 
-Mutaciones del candado de versión (#12):
+Mutaciones del candado de versión (#12). Cuentan todos los tests del backend (180) con cada mutación aplicada:
 
 | Mutación | Tests en rojo |
 |---|---|
-| V1 el `UPDATE` sin `AND version` | 7 |
-| V2 siempre 404 cuando `changes === 0` | 6 |
-| V3 siempre 409 cuando `changes === 0` | 2 |
+| V1 el `UPDATE` sin `AND version` | 12 |
+| V2 siempre 404 cuando `changes === 0` | 13 |
+| V3 siempre 409 cuando `changes === 0` | 3 |
 | V4 el candado solo se aplica cuando viene `stock` | 1 (agregado tras la revisión A1: antes pasaba en verde) |
-| V5 `version` deja de ser obligatoria | 11 |
-| V6 `version` acepta texto | 7 |
-| V7 el cambio no sube `version` | 8 |
+| V5 `version` deja de ser obligatoria | 10 |
+| V6 `version` acepta texto | 6 |
+| V7 el cambio no sube `version` | 12 |
 
-Mutaciones del panel de mantención (#13):
+Mutaciones del panel de mantención (#13). Cuentan los 42 tests de `Backoffice.test.tsx` con cada mutación aplicada. Las mutaciones se aplicaron leyendo y escribiendo en UTF-8: una primera tanda con la lectura predeterminada de Windows PowerShell corrompió las tildes y dio conteos inflados, por eso se repitió entera:
 
 | Mutación | Tests en rojo |
 |---|---|
-| P1 no se envía la `version` | 7 |
-| P2 se envían siempre precio y stock | 4 |
-| P3 la clave se guarda en `localStorage` | todos (en este entorno `localStorage` lanza error) y el test de memoria |
-| P4 se muestra el borrador en vez de la respuesta del backend | 4 (agregado tras la revisión A1: antes pasaba en verde) |
-| P5 no se recarga tras el 409 | 4 |
-| P6 la recarga pisa los borradores | 1 (agregado tras A1) |
-| P7 el error del stock no se muestra junto al campo | 3 |
-| P8 `disabled` en vez de `aria-disabled` (se pierde el foco) | 1 |
-| P9 un texto no numérico se envía como `NaN` | 3 |
-| P10 sin protección de doble clic | 3 |
-| P11 «Salir» no olvida la clave | 2 (reforzado tras A1) |
-| P12 el reintento usa la version recargada en vez de la de origen | 1 |
+| F1 no se envía la `version` | 8 |
+| F2 se envían siempre precio y stock | 4 |
+| F3 la clave se guarda en `localStorage` | 1 en el test de memoria (con almacenamientos falsos); con el `localStorage` real de este entorno fallan casi todos porque lanza error |
+| F4 se muestra el borrador en vez de la respuesta del backend | 2 (agregado tras la revisión A1: antes pasaba en verde) |
+| F5 no se recarga tras el 409 | 2 |
+| F6 la recarga pisa los borradores | 1 (agregado tras A1) |
+| F7 el error del stock no se muestra junto al campo | 4 |
+| F8 `disabled` en vez de `aria-disabled` (se pierde el foco) | 1 |
+| F9 un texto no numérico se envía como `NaN` | 6 |
+| F10 sin protección de doble clic | 1 |
+| F11 «Salir» no borra el campo de la clave | 2 (la variante «no poner `sesion` en null» es equivalente: `sesion` se reescribe en cada ingreso) |
+| F12 el reintento usa la version recargada en vez de la de origen | 1 |
+| F13 un punto de miles se lee como decimal («10.000» → 10, hallazgo A2) | 3 |
+| F14 la respuesta de una sesión anterior se aplica igual (hallazgo A2) | 1 |
+| F15 un guardado en curso bloquea las demás filas (hallazgo A2) | 1 |
+| F16 «Salir» no devuelve el foco al campo de la clave (hallazgo A2) | 1 |
 
 ## 4. Revisiones con IA (advisor con Opus)
 
@@ -234,6 +238,7 @@ Mutaciones del panel de mantención (#13):
 | A1 — tests de #11 antes de implementar | ¿Falta algún escenario del Gherkin? ¿Algún test no puede fallar? | Se quitó `version` del test de campos ignorados (es de #12), se cambió la prueba «lo que verá la búsqueda» por una real vía compra, se eliminó un test que no podía fallar y se agregó «401 antes que 400/404» |
 | A2 — implementación de #11 | ¿Fuera de alcance, regresiones, secretos, tests débiles? | Faltaba detectar un `UPDATE` sin `WHERE` (M9): corregido. Se alineó el modelo de datos sobre `version` y el ejemplo del README para PowerShell |
 | A1 — tests de #17 antes del componente | ¿Escenarios sin test? ¿Tests que no pueden fallar? | El caso de «1.5» podía pasar por el motivo equivocado (jsdom vacía el campo): se asigna el valor completo y se comprueba. Se agregó que los botones solo aparecen bloqueados en los límites. Las flechas del teclado y las medidas se comprobaron en navegador real (sección 2b) |
+| A2 — implementación del panel (#13) | ¿Carreras o estados atascados? ¿Reglas del CLAUDE.md, accesibilidad, regresiones, tests frágiles? | **Hallazgo alto:** «10.000» (diez mil en Chile) se convertía en 10, un entero válido que el backend aceptaba: ahora solo los enteros se envían como número y lo demás va tal cual para que el backend lo rechace (F13). Además: guardar en una segunda fila mientras otra guardaba se descartaba sin aviso (ahora se guarda por fila, F15), la respuesta de un guardado tras «Salir» podía dejar un aviso viejo (F14), «Salir» y el error de carga dejaban el foco en el `body` (F16), los 34 botones de guardar se llamaban igual (ahora incluyen el nombre del medicamento) y el 409 pedía recargar algo que el panel ya había recargado (se agregó una ayuda). También se corrigió el README, que aún decía que el listado respondía 501 |
 | A1 — tests del panel (#13) antes de implementar | ¿Escenarios sin test? ¿Tests que no pueden fallar o que fuerzan una implementación? | El test del doble clic no podía pasar con ninguna implementación (el botón cambia de nombre al guardar): se reescribió con el mismo botón y `aria-disabled`. Lo guardado que se ve venía siempre igual a lo escrito (P4 pasaba en verde): el fake ahora responde con un stock distinto. Faltaba el caso de un borrador de otra fila cuya version cambió en la recarga (P6) y que «Salir» olvide la clave de verdad. Se agregaron el 404, que `aria-invalid` se limpie y que el aviso del 409 y el foco sobrevivan a la recarga |
 | A2 — implementación de #12 | ¿El candado es atómico? ¿Capas, reglas del CLAUDE.md, regresiones, tests frágiles? | Sin hallazgos altos. Se agregó una guarda en el repository (una `version` ausente se enviaría como NULL y parecería un 409) con su test, y la ejecución en vivo con `version` (sección 2a), porque la evidencia de la sección 2 era anterior a #12 |
 | A1 — tests de #12 antes de implementar | ¿Falta algún escenario del contrato? ¿Algún test no puede fallar? ¿Son confiables los tests con procesos reales? | Se agregó el 409 para un cambio de solo precio (la mutación V4 pasaba en verde), la validación de `version` antes del 404, que `errores` tenga solo `version`, y que el 409 de «otro medicamento» se compruebe de verdad. Los tests concurrentes con reintentos pasaban con o sin candado: se dejaron como pruebas de robustez y se agregó una prueba con 3 procesos reales que usa una versión vieja |
