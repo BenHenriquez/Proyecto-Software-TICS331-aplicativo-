@@ -13,17 +13,23 @@ export function crearMedicamentosRepository(db) {
   });
 
   // Un solo UPDATE: nunca "leer, cambiar en JS y guardar". Un valor null significa "no cambiar".
+  // `AND version = @version` es el candado de #12 (MODELO_DE_DATOS.md §5): si una venta u otra
+  // edición cambió el medicamento después de que el panel lo leyó, el UPDATE no toca nada.
   const actualizar = db.prepare(`
     UPDATE medicamentos
     SET precio_unitario = COALESCE(@precioUnitario, precio_unitario),
         stock = COALESCE(@stock, stock),
         version = version + 1
-    WHERE codigo = @codigo
+    WHERE codigo = @codigo AND version = @version
   `);
   const leer = db.prepare('SELECT * FROM medicamentos WHERE codigo = ?');
   const actualizarYLeer = db.transaction((datos) => {
-    if (actualizar.run(datos).changes === 0) return undefined;
-    return leer.get(datos.codigo);
+    // changes === 0 significa "no existe" o "la versión cambió"; se distingue en la misma
+    // transacción para no devolver 404 por un conflicto de versión.
+    if (actualizar.run(datos).changes === 0) {
+      return { ok: false, motivo: leer.get(datos.codigo) ? 'version_cambiada' : 'no_existe' };
+    }
+    return { ok: true, fila: leer.get(datos.codigo) };
   });
 
   return {
@@ -49,10 +55,13 @@ export function crearMedicamentosRepository(db) {
       return db.prepare('SELECT * FROM medicamentos WHERE codigo = ?').get(codigo);
     },
 
-    // US-13 (#11): cambia precio y/o stock y sube la version. Devuelve la fila actualizada,
-    // o undefined si el código no existe. Los valores ya vienen validados por el servicio.
-    actualizarPrecioYStock({ codigo, precioUnitario = null, stock = null }) {
-      return actualizarYLeer({ codigo, precioUnitario, stock });
+    // US-13 (#11, #12): cambia precio y/o stock y sube la version, solo si `version` es la vigente.
+    // Devuelve { ok: true, fila } o { ok: false, motivo: 'no_existe' | 'version_cambiada' }.
+    // Los valores ya vienen validados por el servicio.
+    actualizarPrecioYStock({ codigo, precioUnitario = null, stock = null, version }) {
+      // Sin esto, una version ausente se enviaría como NULL y parecería un conflicto (409) en vez de un fallo.
+      if (!Number.isSafeInteger(version) || version < 0) throw new TypeError('actualizarPrecioYStock exige la version vigente');
+      return actualizarYLeer({ codigo, precioUnitario, stock, version });
     },
   };
 }
