@@ -1,4 +1,4 @@
-# Trazabilidad y verificación — #11 (US-13), #17 (US-15), #7 y #10 (US-02)
+# Trazabilidad y verificación — #11 (US-13), #17 (US-15), #7, #8, #9 y #10 (US-02)
 
 > Evidencia de que cada criterio de aceptación del Sprint 1 tiene una comprobación concreta.
 > Datos 100% sintéticos. Última actualización: 2026-09-30.
@@ -22,13 +22,18 @@ Leyenda de estado: ✅ comprobado · ⏳ pendiente · ➡️ lo cubre otra tarea
 | US-02 error sin stock (backend): aparece como no disponible y no se puede comprar | mismo archivo → «Escenario de error — sin stock» (`disponible: false` y `POST /api/pedidos` responde 409) | automático | #7, #10 | ✅ · ➡️ pantalla en #9 |
 | Regla 4: búsqueda sin distinguir mayúsculas ni tildes («Losartan» = «Losartán»), parcial y por principio activo | mismo archivo + `backend/tests/medicamentosApi.test.js` (mayúsculas, tildes, espacios, parcial, varias palabras, `%`/`_` literales, inactivos, `q` corto/repetido/largo → 400) | automático | #7, #10 | ✅ |
 | La columna `busqueda` de la semilla coincide con la normalización del servidor | `medicamentosApi.test.js` → «coincide con la columna busqueda de toda la semilla» | automático | #6, #7 | ✅ |
+| US-02 feliz (pantalla): tarjetas con nombre oficial y dosificación, principio activo, precio y disponibilidad | `frontend/src/pages/Buscador.test.tsx` → «#8 escenario feliz…» | automático | #8 | ✅ |
+| US-02 sin coincidencias (pantalla): mensaje claro en vez de pantalla vacía | mismo archivo → «#9 sin coincidencias» | automático | #9 | ✅ |
+| US-02 sin stock (pantalla): etiqueta «Sin stock» visible y sin botón de compra | mismo archivo → «#9 sin stock» (también en una lista mixta) | automático | #9 | ✅ |
+| Pantalla de búsqueda: estados cargando y error (400 con mensaje del backend, sin conexión, 500) en español, sin códigos | mismo archivo → «mientras espera…» y «errores» | automático | #8, #9 | ✅ |
+| Pantalla de búsqueda solo con teclado (Enter busca, Tab llega a «Elegir cantidad», el foco vuelve a la tarjeta) | mismo archivo → «solo con teclado…» | automático | #8 | ✅ |
 | Concurrencia de US-15 no se rompe (Gherkin del issue #3) | `backend/tests/us15-concurrencia.test.js` se ejecuta en cada `npm test` | regresión | #11, #17 | ✅ |
 | US-15 «elegir cantidad» con total a la vista | `frontend/src/components/SelectorCantidad.test.tsx` → «escenario feliz…» | automático | #17 | ✅ |
 | US-15 cantidad fuera de rango se informa y no deja continuar | mismo archivo → «escenario de error: cantidad inválida» (0, 25, 1.5, vacío, máximo real según stock) | automático | #17 | ✅ |
 | US-02 sin stock: se dice «sin stock» y no se ofrece comprar | mismo archivo → «estado sin stock» | automático | #17 | ✅ |
 | Front: solo teclado (Tab, Enter, flechas), letra ≥ 18 px, contraste, zoom 200 % | mismo archivo → «uso solo con teclado» + prueba en navegador real (sección 2b) | automático + navegador | #17 | ✅ |
 | Regla 1: precio y total los calcula el backend | `onContinuar` se prueba con `toHaveBeenCalledWith(2)`: entrega solo la cantidad, nunca precio ni total; el total del selector es informativo y así se dice en pantalla. Regresión: `pedidosApi.test.js` | automático | #17 | ✅ |
-| El selector se conecta a la pantalla de búsqueda y a la confirmación | pendiente de #8 (búsqueda) y #18 (confirmación) | integración | #8, #18 | ➡️ |
+| El selector se conecta a la pantalla de búsqueda y a la confirmación | `frontend/src/pages/Buscador.test.tsx` → «elegir un medicamento disponible…» (búsqueda → selector → volver). La confirmación queda en #18 | automático | #8 → #18 | ✅ búsqueda · ➡️ confirmación en #18 |
 | Fuera de alcance del Sprint 1 (Praxsuite, WhatsApp, IA…) | revisión del diff | revisión | todas | ⏳ al abrir el PR |
 
 ## 2. Ejecución en vivo del Gherkin de US-13 (2026-09-30)
