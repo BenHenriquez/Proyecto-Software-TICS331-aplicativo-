@@ -234,7 +234,8 @@ describe('Backoffice (panel de mantención)', () => {
       const alerta = await screen.findByRole('alert');
       expect(alerta.textContent).toMatch(texto);
       expect(alerta.textContent).not.toMatch(/500|TypeError|fetch|texto técnico/i);
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Intentar de nuevo' }));
+      // El foco lo mueve un efecto, que React ejecuta un instante después de pintar el aviso
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Intentar de nuevo' })));
 
       simular();
       await usuario.click(screen.getByRole('button', { name: 'Intentar de nuevo' }));
