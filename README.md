@@ -2,7 +2,7 @@
 
 Prototipo del curso TICS331 (equipo BBMVV). En el Sprint 1 una vecina busca un medicamento por nombre o principio activo, ve su precio y disponibilidad y genera un pedido. Todo funciona con **datos sintéticos**.
 
-> Estado actual (Sprint 1, en construcción): funcionan `GET /api/health`, `GET /api/medicamentos?q=` (búsqueda por nombre o principio activo, US-02), `POST /api/pedidos` (compra atómica, US-15) y `PUT /api/backoffice/medicamentos/:codigo` (actualizar precio y stock, US-13). Sigue respondiendo `501` el listado del backoffice (`GET /api/backoffice/medicamentos`). En el front, el selector de cantidad (`SelectorCantidad`) está construido y probado, pero aún no está conectado a la pantalla de búsqueda.
+> Estado actual (Sprint 1, en construcción): funcionan `GET /api/health`, `GET /api/medicamentos?q=` (búsqueda por nombre o principio activo, US-02), `POST /api/pedidos` (compra atómica, US-15) y `PUT /api/backoffice/medicamentos/:codigo` (actualizar precio y stock, US-13). Sigue respondiendo `501` el listado del backoffice (`GET /api/backoffice/medicamentos`). En el front, la pantalla de búsqueda (`/`) muestra tarjetas con nombre, principio activo, precio y disponibilidad, avisa cuando no hay coincidencias, marca «Sin stock» sin botón de compra y abre el selector de cantidad (`SelectorCantidad`); la confirmación del pedido (#18) aún no está conectada.
 
 ## Requisitos
 
@@ -62,7 +62,7 @@ backend/            Node + Express + better-sqlite3
   tests/            vitest + supertest
 frontend/           React + Vite + TypeScript
   src/pages/        "/" buscador y "/backoffice"
-  src/components/   componentes reutilizables (selector de cantidad)
+  src/components/   componentes reutilizables (tarjeta de medicamento, selector de cantidad)
   src/lib/          utilidades (formato de pesos)
 docs/               ADR, modelo de datos, backlog del sprint y trazabilidad de la verificación (docs/sprint-1/TRAZABILIDAD.md)
 ```
