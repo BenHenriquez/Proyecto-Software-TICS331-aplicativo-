@@ -7,14 +7,17 @@ export const STOCK_MAXIMO = 1_000_000;
 const MENSAJES = {
   precioUnitario: 'El precio debe ser un número entero mayor que cero y de hasta diez millones.',
   stock: 'El stock debe ser un número entero, desde cero y de hasta un millón.',
+  version: 'No pudimos saber qué datos estabas viendo. Recarga la página e inténtalo de nuevo.',
   general: 'Indica el precio o el stock que quieres cambiar.',
   datos_invalidos: 'No guardamos ningún cambio. Revisa los datos marcados e inténtalo de nuevo.',
   no_existe: 'No encontramos ese medicamento. Vuelve a buscarlo, por favor.',
+  version_cambiada: 'El stock cambió mientras editabas. Recarga e intenta de nuevo.',
 };
 
 const tiene = (cuerpo, campo) => Object.hasOwn(cuerpo, campo);
 const esPrecioValido = (valor) => Number.isSafeInteger(valor) && valor > 0 && valor <= PRECIO_MAXIMO;
 const esStockValido = (valor) => Number.isSafeInteger(valor) && valor >= 0 && valor <= STOCK_MAXIMO;
+const esVersionValida = (valor) => Number.isSafeInteger(valor) && valor >= 0;
 
 function aVista(fila) {
   return {
@@ -32,11 +35,15 @@ function aVista(fila) {
 export function crearBackofficeService(medicamentosRepository) {
   return {
     // Solo se editan precio y stock; cualquier otro campo del cuerpo se ignora.
-    // `version` (candado frente a ventas simultáneas) lo agrega #12 sobre este mismo método.
+    // `version` es obligatoria (#12): es la que leyó el panel y funciona como candado frente a
+    // ventas simultáneas; no se edita, solo sube con cada cambio.
     actualizarMedicamento(codigo, cuerpo) {
       const datos = cuerpo !== null && typeof cuerpo === 'object' ? cuerpo : {};
       const errores = {};
 
+      if (!esVersionValida(datos.version)) {
+        errores.version = MENSAJES.version;
+      }
       if (!tiene(datos, 'precioUnitario') && !tiene(datos, 'stock')) {
         errores.general = MENSAJES.general;
       }
@@ -50,14 +57,15 @@ export function crearBackofficeService(medicamentosRepository) {
         return { ok: false, motivo: 'datos_invalidos', mensaje: MENSAJES.datos_invalidos, errores };
       }
 
-      const fila = medicamentosRepository.actualizarPrecioYStock({
+      const r = medicamentosRepository.actualizarPrecioYStock({
         codigo,
         precioUnitario: tiene(datos, 'precioUnitario') ? datos.precioUnitario : null,
         stock: tiene(datos, 'stock') ? datos.stock : null,
+        version: datos.version,
       });
-      if (!fila) return { ok: false, motivo: 'no_existe', mensaje: MENSAJES.no_existe };
+      if (!r.ok) return { ok: false, motivo: r.motivo, mensaje: MENSAJES[r.motivo] };
 
-      return { ok: true, medicamento: aVista(fila) };
+      return { ok: true, medicamento: aVista(r.fila) };
     },
   };
 }

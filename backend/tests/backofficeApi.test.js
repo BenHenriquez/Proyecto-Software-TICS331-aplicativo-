@@ -320,7 +320,18 @@ describe('PUT /api/backoffice/medicamentos/:codigo', () => {
       expect(fila()).toMatchObject({ stock: 150, version: 2 });
     });
 
-    it('una version que no es la actual (ni anterior ni futura) se rechaza con 409', async () => {
+    it('también un cambio de solo precio exige la version vigente (el candado no depende del campo editado)', async () => {
+      const { version } = fila();
+      await comprar(1);
+      const despuesDeLaVenta = fila();
+
+      const res = await actualizar({ precioUnitario: 2500, version });
+
+      expect(res.status).toBe(409);
+      expect(fila()).toEqual(despuesDeLaVenta);
+    });
+
+    it('una version futura (mayor que la actual) también se rechaza con 409', async () => {
       const { version } = fila();
 
       const futura = await actualizar({ stock: 50, version: version + 5 });
@@ -343,8 +354,23 @@ describe('PUT /api/backoffice/medicamentos/:codigo', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.motivo).toBe('datos_invalidos');
+      expect(Object.keys(res.body.errores)).toEqual(['version']); // solo el campo que falla
       expect(res.body.errores.version).toBeTypeOf('string');
       expect(fila()).toEqual(antes);
+    });
+
+    it('una version inválida se informa con 400 aunque el medicamento no exista (la validación va antes que la búsqueda)', async () => {
+      const res = await actualizar({ stock: 5, version: undefined }, { codigo: 'MED-999' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.errores.version).toBeTypeOf('string');
+    });
+
+    it('version e importes inválidos a la vez: se informan todos los campos', async () => {
+      const res = await actualizar({ stock: -1, version: 'abc' });
+
+      expect(res.status).toBe(400);
+      expect(Object.keys(res.body.errores).sort()).toEqual(['stock', 'version']);
     });
 
     it('un valor inválido se informa con 400 aunque la version sea vieja (la validación va antes que el candado)', async () => {
@@ -360,7 +386,7 @@ describe('PUT /api/backoffice/medicamentos/:codigo', () => {
     it('el conflicto afecta solo al medicamento editado: otro medicamento sigue editable con su version', async () => {
       const { version } = fila();
       await comprar(1);
-      await actualizar({ stock: 150, version }); // 409 sobre MED-001
+      expect((await actualizar({ stock: 150, version })).status).toBe(409); // conflicto sobre MED-001
 
       const otro = await actualizar({ stock: 7 }, { codigo: 'MED-002' });
 

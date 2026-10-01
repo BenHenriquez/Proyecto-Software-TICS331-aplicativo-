@@ -6,7 +6,7 @@ import { noImplementado } from '../services/noImplementado.js';
 
 // US-13 Mantener stock (#2). El token simulado (header x-backoffice-token) protege el PUT;
 // el listado del panel (GET) lo implementa #13 y debe usar el mismo middleware.
-const ESTADO_HTTP = { datos_invalidos: 400, no_existe: 404 };
+const ESTADO_HTTP = { datos_invalidos: 400, no_existe: 404, version_cambiada: 409 };
 
 export function crearRutasBackoffice() {
   const router = Router();

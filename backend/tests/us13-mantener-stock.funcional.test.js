@@ -209,7 +209,9 @@ describe('US-13 · Actualización a la vez que varias vecinas compran (conexione
   });
 
   // Como el panel (#12): lee la version, guarda y, si una venta se adelantó (409), recarga y reintenta.
-  // Un 409 aquí es el comportamiento correcto (no pisar la venta), no un error.
+  // Un 409 aquí es el comportamiento correcto (no pisar la venta), no un error. Estas dos pruebas
+  // comprueban robustez (sin errores ni stock negativo); la evidencia del candado es el test
+  // «con datos viejos» de más abajo y los del bloque #12 de backofficeApi.test.js.
   async function guardarConReintentos(codigo, cuerpo) {
     for (let intento = 1; intento <= 20; intento++) {
       const { version } = db.prepare('SELECT version FROM medicamentos WHERE codigo = ?').get(codigo);
@@ -222,6 +224,37 @@ describe('US-13 · Actualización a la vez que varias vecinas compran (conexione
     }
     return 409;
   }
+
+  it(
+    'una actualización con la versión leída antes de 3 ventas hechas por otros procesos se rechaza con 409 y no las pisa',
+    async () => {
+      // Dado que el panel leyó MED-001 (stock 120, version 0)
+      const { version } = db.prepare('SELECT version FROM medicamentos WHERE codigo = ?').get('MED-001');
+      // Y que tres vecinas compran 2 unidades cada una, desde procesos con su propia conexión
+      const inicio = Date.now() + 1000;
+      const compras = await Promise.all(
+        Array.from({ length: 3 }, () =>
+          ejecutar(process.execPath, [comprador, rutaDb, 'MED-001', '2', String(inicio)]).then(({ stdout }) => JSON.parse(stdout))
+        )
+      );
+      expect(compras.every((c) => c.ok)).toBe(true);
+
+      // Cuando la funcionaria guarda con la versión que leyó
+      const res = await fetch(`${url}/api/backoffice/medicamentos/MED-001`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', 'x-backoffice-token': TOKEN },
+        body: JSON.stringify({ stock: 150, version }),
+      });
+
+      // Entonces se rechaza y el stock refleja las ventas (120 − 6), sin pisarlas
+      expect(res.status).toBe(409);
+      expect(db.prepare('SELECT stock, version FROM medicamentos WHERE codigo = ?').get('MED-001')).toEqual({
+        stock: 114,
+        version: version + 3,
+      });
+    },
+    TIEMPO_MAXIMO
+  );
 
   it(
     'cambiar el precio justo cuando 6 vecinas compran no pisa el stock y no produce errores',
