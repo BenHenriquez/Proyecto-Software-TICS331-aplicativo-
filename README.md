@@ -45,6 +45,7 @@ El `.env` no se sube al repositorio.
   ```bash
   curl -X PUT http://localhost:5173/api/backoffice/medicamentos/MED-001 -H "x-backoffice-token: <el valor de tu .env>" -H "Content-Type: application/json" -d '{"precioUnitario": 2100, "version": 0}'
   ```
+- **Panel de mantención:** en <http://localhost:5173/backoffice> la funcionaria escribe la clave del equipo (el valor de `BACKOFFICE_TOKEN` de tu `.env`; es simulada y solo vive en la memoria de la página, nunca se guarda en el navegador), ve el listado con el precio y el stock de cada medicamento, los edita y confirma con «Guardar cambios». Si el valor no es válido, el motivo aparece junto al campo y se mantiene el valor guardado. Si una venta cambió el medicamento mientras editaba, el panel avisa y recarga lo guardado para que pueda volver a intentarlo.
 - **Fuera del Sprint 1:** pagos, Praxsuite, SAP, WhatsApp, delivery e IA no están implementados.
 
 ## Estructura
@@ -62,8 +63,8 @@ backend/            Node + Express + better-sqlite3
   tests/            vitest + supertest
 frontend/           React + Vite + TypeScript
   src/pages/        "/" buscador y "/backoffice"
-  src/components/   componentes reutilizables (tarjeta de medicamento, selector de cantidad)
-  src/lib/          utilidades (formato de pesos)
+  src/components/   componentes reutilizables (tarjeta de medicamento, selector de cantidad, fila del panel de mantención)
+  src/lib/          cliente de la API y utilidades (formato de pesos)
 docs/               ADR, modelo de datos, backlog del sprint y trazabilidad de la verificación (docs/sprint-1/TRAZABILIDAD.md)
 ```
 
