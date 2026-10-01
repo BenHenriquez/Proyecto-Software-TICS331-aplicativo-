@@ -74,6 +74,23 @@ Clon de `origin/dev` (commit `63d4056`) siguiendo el README: `npm ci`, `cp .env.
 | Cuerpo de 200 KB | 413 `solicitud_invalida`, sin cambios en la base |
 | Estado final de MED-001 en la base | precio 2100, stock 116 (118 − 2 de la compra), version 3 |
 
+> Las dos tablas anteriores son de #11, anteriores a #12: sus `PUT` no llevan `version`. Con #12 esas mismas llamadas sin `version` responden 400; la repetición con `version` está en la sección 2a.
+
+## 2a. Candado de versión en vivo (#12, 2026-10-01)
+
+`npm run seed` + `npm run dev` con el código de la rama `feat/US-13-version`; peticiones por `http://localhost:5173/api/...`. El token se leyó del `.env` y no se muestra.
+
+| # | Acción | Resultado esperado | Resultado real |
+|---|---|---|---|
+| 1 | `PUT` a MED-001 con `{ precioUnitario: 2100 }` (sin `version`) | 400, nada guardado | ✅ 400 |
+| 2 | **Feliz:** `{ precioUnitario: 2100, version: 0 }` | 200, precio nuevo, version 1 | ✅ 200, precio 2100, version 1 |
+| 3 | Compra de 2 unidades (la vecina) | total con el precio nuevo; sube la version a 2 | ✅ 201, total 4200 |
+| 4 | **Datos viejos:** `{ stock: 150, version: 0 }` después de la venta | 409, no pisa la venta | ✅ 409 |
+| 5 | Recarga y guarda con la version vigente: `{ stock: 150, version: 2 }` | 200, version 3 | ✅ 200, stock 150, version 3 |
+| 6 | `PUT` a MED-999 | 404 (no 409) | ✅ 404 |
+| 7 | **Error:** `{ stock: -5, version: 3 }` | 400, nada guardado | ✅ 400 |
+| 8 | Búsqueda de la vecina («losartan 50») | muestra el valor vigente | ✅ precio 2100, stock 150 |
+
 ## 2b. Selector de cantidad en navegador real (2026-09-30)
 
 Componente montado temporalmente en la página de búsqueda (sin commitear) y probado con Chromium (Playwright). Capturas locales: estado normal, cantidad inválida y zoom 200 %.
@@ -174,6 +191,7 @@ Mutaciones del candado de versión (#12):
 | A1 — tests de #11 antes de implementar | ¿Falta algún escenario del Gherkin? ¿Algún test no puede fallar? | Se quitó `version` del test de campos ignorados (es de #12), se cambió la prueba «lo que verá la búsqueda» por una real vía compra, se eliminó un test que no podía fallar y se agregó «401 antes que 400/404» |
 | A2 — implementación de #11 | ¿Fuera de alcance, regresiones, secretos, tests débiles? | Faltaba detectar un `UPDATE` sin `WHERE` (M9): corregido. Se alineó el modelo de datos sobre `version` y el ejemplo del README para PowerShell |
 | A1 — tests de #17 antes del componente | ¿Escenarios sin test? ¿Tests que no pueden fallar? | El caso de «1.5» podía pasar por el motivo equivocado (jsdom vacía el campo): se asigna el valor completo y se comprueba. Se agregó que los botones solo aparecen bloqueados en los límites. Las flechas del teclado y las medidas se comprobaron en navegador real (sección 2b) |
+| A2 — implementación de #12 | ¿El candado es atómico? ¿Capas, reglas del CLAUDE.md, regresiones, tests frágiles? | Sin hallazgos altos. Se agregó una guarda en el repository (una `version` ausente se enviaría como NULL y parecería un 409) con su test, y la ejecución en vivo con `version` (sección 2a), porque la evidencia de la sección 2 era anterior a #12 |
 | A1 — tests de #12 antes de implementar | ¿Falta algún escenario del contrato? ¿Algún test no puede fallar? ¿Son confiables los tests con procesos reales? | Se agregó el 409 para un cambio de solo precio (la mutación V4 pasaba en verde), la validación de `version` antes del 404, que `errores` tenga solo `version`, y que el 409 de «otro medicamento» se compruebe de verdad. Los tests concurrentes con reintentos pasaban con o sin candado: se dejaron como pruebas de robustez y se agregó una prueba con 3 procesos reales que usa una versión vieja |
 
 ### Revisión con contexto limpio (G5)

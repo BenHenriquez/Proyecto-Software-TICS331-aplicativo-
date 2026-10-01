@@ -59,6 +59,8 @@ export function crearMedicamentosRepository(db) {
     // Devuelve { ok: true, fila } o { ok: false, motivo: 'no_existe' | 'version_cambiada' }.
     // Los valores ya vienen validados por el servicio.
     actualizarPrecioYStock({ codigo, precioUnitario = null, stock = null, version }) {
+      // Sin esto, una version ausente se enviaría como NULL y parecería un conflicto (409) en vez de un fallo.
+      if (!Number.isSafeInteger(version) || version < 0) throw new TypeError('actualizarPrecioYStock exige la version vigente');
       return actualizarYLeer({ codigo, precioUnitario, stock, version });
     },
   };
