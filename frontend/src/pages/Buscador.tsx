@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+import ConfirmarPedido from '../components/ConfirmarPedido';
 import SelectorCantidad from '../components/SelectorCantidad';
 import TarjetaMedicamento from '../components/TarjetaMedicamento';
 import { buscarMedicamentos, ErrorApi, type Medicamento } from '../lib/api';
 
 // US-02 Consultar medicamento (#1). #8: buscador y tarjetas de resultado. #9: mensaje claro sin
 // coincidencias y medicamentos sin stock sin opción de compra. Estados: inicial, cargando,
-// resultados, vacío y error. «Elegir cantidad» abre el selector de US-15 (#17).
+// resultados, vacío y error. «Elegir cantidad» abre el selector de US-15 (#17) y «Continuar con el
+// pedido» abre la confirmación (#18).
 type Estado =
   | { tipo: 'inicial' }
   | { tipo: 'cargando' }
@@ -23,33 +25,48 @@ export default function Buscador() {
   const [consulta, setConsulta] = useState('');
   const [estado, setEstado] = useState<Estado>({ tipo: 'inicial' });
   const [elegido, setElegido] = useState<Medicamento | null>(null);
-  const [aviso, setAviso] = useState('');
+  // Cantidad elegida en el selector: con ella se abre la confirmación del pedido.
+  const [cantidad, setCantidad] = useState<number | null>(null);
+  // Hay un pedido confirmándose: no se acepta otra búsqueda hasta que termine, o se perdería el resultado.
+  const [ocupado, setOcupado] = useState(false);
+  // Tras refrescar la lista por un rechazo, el foco va a la lista de resultados.
+  const [enfocarLista, setEnfocarLista] = useState(false);
 
   const peticion = useRef<AbortController | null>(null);
   const campo = useRef<HTMLInputElement>(null);
   const zonaSelector = useRef<HTMLDivElement>(null);
+  const listaResultados = useRef<HTMLUListElement>(null);
   const botonesElegir = useRef(new Map<string, HTMLButtonElement>());
   const codigoAlVolver = useRef<string | null>(null);
 
   useEffect(() => () => peticion.current?.abort(), []);
 
-  // El foco sigue a la vecina: al abrir el selector va a él; al volver, al botón de la tarjeta que eligió.
+  // El foco sigue a la vecina: al abrir el selector va a él (la confirmación se enfoca sola); al
+  // volver, al botón de la tarjeta que eligió.
   useEffect(() => {
-    if (elegido) {
+    if (elegido && cantidad === null) {
       zonaSelector.current?.focus();
-    } else if (codigoAlVolver.current) {
+    } else if (!elegido && codigoAlVolver.current) {
       botonesElegir.current.get(codigoAlVolver.current)?.focus();
       codigoAlVolver.current = null;
     }
-  }, [elegido]);
+  }, [elegido, cantidad]);
+
+  useEffect(() => {
+    if (enfocarLista && estado.tipo === 'resultados') {
+      listaResultados.current?.focus();
+      setEnfocarLista(false);
+    }
+  }, [enfocarLista, estado]);
 
   async function buscar() {
+    if (ocupado) return;
     peticion.current?.abort();
     const controlador = new AbortController();
     peticion.current = controlador;
 
     setElegido(null);
-    setAviso('');
+    setCantidad(null);
     setEstado({ tipo: 'cargando' });
     try {
       const { resultados, mensaje } = await buscarMedicamentos(consulta.trim(), controlador.signal);
@@ -70,14 +87,28 @@ export default function Buscador() {
 
   function volver() {
     codigoAlVolver.current = elegido?.codigo ?? null;
-    setAviso('');
+    setCantidad(null);
     setElegido(null);
   }
 
-  // La confirmación del pedido es #18 (US-15); por ahora solo se informa la cantidad elegida.
-  function continuar(cantidad: number) {
-    const unidades = cantidad === 1 ? '1 unidad' : `${cantidad} unidades`;
-    setAviso(`Elegiste ${unidades}. La confirmación del pedido estará disponible muy pronto.`);
+  // Tras un rechazo del pedido (sin stock, medicamento inexistente) lo que se veía ya no es cierto:
+  // se vuelve a pedir la búsqueda para no mostrar stock viejo.
+  function volverDeLaConfirmacion(refrescar: boolean) {
+    if (!refrescar) return volver();
+    setCantidad(null);
+    setElegido(null);
+    setEnfocarLista(true);
+    void buscar();
+  }
+
+  // Después de crear un pedido: buscador limpio y el foco en el campo.
+  function nuevaBusqueda() {
+    peticion.current?.abort();
+    setElegido(null);
+    setCantidad(null);
+    setConsulta('');
+    setEstado({ tipo: 'inicial' });
+    campo.current?.focus();
   }
 
   return (
@@ -103,7 +134,9 @@ export default function Buscador() {
           onChange={(e) => setConsulta(e.target.value)}
           aria-describedby={estado.tipo === 'error' ? 'error-busqueda' : undefined}
         />
-        <button type="submit">Buscar</button>
+        <button type="submit" aria-disabled={ocupado}>
+          Buscar
+        </button>
       </form>
 
       {/* Región viva: anuncia en voz alta el resultado de cada búsqueda. */}
@@ -124,21 +157,29 @@ export default function Buscador() {
         </div>
       )}
 
-      {estado.tipo === 'resultados' && elegido && (
+      {estado.tipo === 'resultados' && elegido && cantidad === null && (
         <div ref={zonaSelector} className="zona-selector" tabIndex={-1} aria-label={`Elegir cantidad de ${elegido.nombre}`}>
           <button type="button" className="boton-secundario" onClick={volver}>
             <span aria-hidden="true">← </span>Volver a los resultados
           </button>
-          <SelectorCantidad medicamento={elegido} onContinuar={continuar} />
-          {/* Siempre presente (aunque vacía) para que el lector de pantalla anuncie el aviso al aparecer. */}
-          <p className={aviso ? 'aviso' : undefined} role="status">
-            {aviso}
-          </p>
+          <SelectorCantidad medicamento={elegido} onContinuar={setCantidad} />
         </div>
       )}
 
+      {estado.tipo === 'resultados' && elegido && cantidad !== null && (
+        <ConfirmarPedido
+          key={elegido.codigo}
+          medicamento={elegido}
+          cantidad={cantidad}
+          onCambiarCantidad={() => setCantidad(null)}
+          onVolverAResultados={volverDeLaConfirmacion}
+          onNuevaBusqueda={nuevaBusqueda}
+          onOcupado={setOcupado}
+        />
+      )}
+
       {estado.tipo === 'resultados' && !elegido && (
-        <ul className="resultados" aria-label="Resultados de la búsqueda">
+        <ul ref={listaResultados} className="resultados" tabIndex={-1} aria-label="Resultados de la búsqueda">
           {estado.resultados.map((m) => (
             <li key={m.codigo}>
               <TarjetaMedicamento
