@@ -2,7 +2,7 @@
 
 Prototipo del curso TICS331 (equipo BBMVV). En el Sprint 1 una vecina busca un medicamento por nombre o principio activo, ve su precio y disponibilidad y genera un pedido. Todo funciona con **datos sintéticos**.
 
-> Estado actual (Sprint 1, en construcción): funcionan `GET /api/health`, `GET /api/medicamentos?q=` (búsqueda por nombre o principio activo, US-02), `POST /api/pedidos` (compra atómica, US-15) y `GET /api/backoffice/medicamentos` junto con `PUT /api/backoffice/medicamentos/:codigo` (listar y actualizar precio y stock, con candado de versión frente a ventas simultáneas, US-13). En el front, el panel de mantención (`/backoffice`) lista los medicamentos y deja editar su precio y stock, y la pantalla de búsqueda (`/`) muestra tarjetas con nombre, principio activo, precio y disponibilidad, avisa cuando no hay coincidencias, marca «Sin stock» sin botón de compra y abre el selector de cantidad (`SelectorCantidad`); la confirmación del pedido (#18) aún no está conectada.
+> Estado actual (Sprint 1, en construcción): funcionan `GET /api/health`, `GET /api/medicamentos?q=` (búsqueda por nombre o principio activo, US-02), `POST /api/pedidos` (compra atómica, US-15) y `GET /api/backoffice/medicamentos` junto con `PUT /api/backoffice/medicamentos/:codigo` (listar y actualizar precio y stock, con candado de versión frente a ventas simultáneas, US-13). En el front, el panel de mantención (`/backoffice`) lista los medicamentos y deja editar su precio y stock, y la pantalla de búsqueda (`/`) muestra tarjetas con nombre, principio activo, precio y disponibilidad, avisa cuando no hay coincidencias, marca «Sin stock» sin botón de compra y abre el selector de cantidad (`SelectorCantidad`) y, al continuar, la confirmación del pedido (`ConfirmarPedido`): resumen, botón de confirmar y, al terminar, el número de pedido con su total y el estado «Solicitud creada» (o el aviso de que ya no hay stock).
 
 ## Requisitos
 
@@ -63,7 +63,7 @@ backend/            Node + Express + better-sqlite3
   tests/            vitest + supertest
 frontend/           React + Vite + TypeScript
   src/pages/        "/" buscador y "/backoffice"
-  src/components/   componentes reutilizables (tarjeta de medicamento, selector de cantidad, fila del panel de mantención)
+  src/components/   componentes reutilizables (tarjeta de medicamento, selector de cantidad, confirmación del pedido, fila del panel de mantención)
   src/lib/          cliente de la API y utilidades (formato de pesos)
 docs/               ADR, modelo de datos, backlog del sprint y trazabilidad de la verificación (docs/sprint-1/TRAZABILIDAD.md)
 ```

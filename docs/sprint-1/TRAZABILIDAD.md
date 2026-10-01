@@ -40,7 +40,12 @@ Leyenda de estado: ✅ comprobado · ⏳ pendiente · ➡️ lo cubre otra tarea
 | US-02 sin stock: se dice «sin stock» y no se ofrece comprar | mismo archivo → «estado sin stock» | automático | #17 | ✅ |
 | Front: solo teclado (Tab, Enter, flechas), letra ≥ 18 px, contraste, zoom 200 % | mismo archivo → «uso solo con teclado» + prueba en navegador real (sección 2b) | automático + navegador | #17 | ✅ |
 | Regla 1: precio y total los calcula el backend | `onContinuar` se prueba con `toHaveBeenCalledWith(2)`: entrega solo la cantidad, nunca precio ni total; el total del selector es informativo y así se dice en pantalla. Regresión: `pedidosApi.test.js` | automático | #17 | ✅ |
-| El selector se conecta a la pantalla de búsqueda y a la confirmación | `frontend/src/pages/Buscador.test.tsx` → «elegir un medicamento disponible…» (búsqueda → selector → volver). La confirmación queda en #18 | automático | #8 → #18 | ✅ búsqueda · ➡️ confirmación en #18 |
+| El selector se conecta a la pantalla de búsqueda y a la confirmación | `frontend/src/pages/Buscador.test.tsx` → «elegir un medicamento disponible…» (búsqueda → selector → volver) y «#18 confirmar el pedido» (selector → confirmación) | automático | #8 → #18 | ✅ búsqueda · ✅ confirmación (#18) |
+| #18 US-15 feliz: con el resumen delante, confirma y ve el pedido con número, medicamento, cantidad, total y estado «Solicitud creada»; el stock se descuenta | `frontend/src/components/ConfirmarPedido.test.tsx` → «escenario feliz…» y `Buscador.test.tsx` → «escenario feliz: confirma y ve el pedido…»; el descuento atómico lo prueban `backend/tests/us15-compra.funcional.test.js` y se comprobó en vivo (sección 2e) | automático + navegador | #18 | ✅ |
+| #18 US-15 error: sin stock suficiente (409) no se crea el pedido, se muestra el mensaje del sistema y «No se creó ningún pedido.»; solo se ofrece volver a los resultados, que se refrescan con la búsqueda original y llevan el foco a la lista; 404 y 400 igual | `ConfirmarPedido.test.tsx` → «escenario de error…» y `Buscador.test.tsx` → «sin stock al confirmar…», «al refrescar tras un rechazo repite la búsqueda original…» | automático + navegador | #18 | ✅ |
+| #18 Regla 1: el cliente envía solo `{ codigo, cantidad }` con `Content-Type: application/json` (sin esa cabecera el backend leería el cuerpo vacío); el precio y el total que se ven al terminar son los del backend, no el estimado | `ConfirmarPedido.test.tsx` → «envía solo el código y la cantidad…», «el total y el precio que se muestran son los que calculó el backend…» | automático | #18 | ✅ |
+| #18 sin pedidos duplicados: doble clic o Enter repetido, «Intentar de nuevo» con doble clic, ningún botón de confirmar tras el éxito, y un 201 que no se puede leer no ofrece reintentar (el pedido pudo crearse) | `ConfirmarPedido.test.tsx` → «mientras confirma…», «Intentar de nuevo también está protegido…», «tras crear el pedido ya no se puede confirmar otra vez», «un 201 … NO ofrece reintentar» | automático | #18 | ✅ (ver limitación abajo) |
+| #18 estados y teclado: confirmando, éxito, rechazado, error de conexión o 500 (sin códigos); el buscador no se mueve mientras se confirma; foco a la confirmación al abrir y al terminar; Enter confirma; ciclo completo solo con teclado; el éxito se anuncia con el número de pedido; letra ≥ 18 px y botones ≥ 56 px | `ConfirmarPedido.test.tsx` y `Buscador.test.tsx` (bloque #18) + navegador real (sección 2e) | automático + navegador | #18 | ✅ |
 | US-13 error de punta a punta: la búsqueda sigue mostrando el valor anterior | `us13-mantener-stock.funcional.test.js` → «Escenario de error» (7 valores inválidos: stock negativo, decimal y no numérico; precio vacío, no numérico, cero y enorme) | automático | #14 | ✅ |
 | US-13 cambios mientras ocurren ventas: el cambio de precio no pisa el stock y no hay errores | mismo archivo → «Actualización a la vez que varias vecinas compran» (6 procesos con conexiones SQLite propias + el `PUT` en el mismo instante: stock 114, version 7, totales cuadran; y cambio de stock sin stock negativo ni errores) | automático (procesos reales) | #14 | ✅ |
 | US-13 una actualización con datos viejos no pisa una venta (409) | `us13-mantener-stock.funcional.test.js` → «una actualización con una versión vieja se rechaza con 409 y no pisa la venta» (con la búsqueda mostrando el stock real), «tras el 409 la funcionaria recarga y guarda con la versión nueva» y, con 3 procesos reales que compran, «…se rechaza con 409 y no las pisa» (stock 114, version 3) | automático (también con procesos reales) | #12, #14 | ✅ |
@@ -116,6 +121,26 @@ Componente montado temporalmente en la página de búsqueda (sin commitear) y pr
 
 Pendiente para una persona del equipo: probarlo con lector de pantalla (queda para US-07, fuera del Sprint 1) y con una persona usuaria real.
 
+## 2e. Confirmación del pedido en navegador real (#18, 2026-10-01)
+
+Rama `feat/US-15-confirmacion`, `npm run seed` + `npm run dev` y Chrome controlado con Playwright. Capturas locales: resumen, éxito, sin stock y ancho de 500 px.
+
+| Paso | Resultado |
+|---|---|
+| **Feliz, solo teclado:** «losartan 50» + Enter, Tab hasta «Elegir cantidad» + Enter, «+» y «Continuar con el pedido» con Enter | el foco pasa a la confirmación; resumen: Losartán 50 mg · 2 unidades · $1.990 por unidad · total estimado $3.980 |
+| Primer Tab dentro de la confirmación | «Confirmar pedido» |
+| Enter en «Confirmar pedido» | «Tu pedido fue creado»: número `P-…`, 2 unidades, total $3.980 y estado «Solicitud creada»; el foco queda en la zona de la confirmación |
+| Stock de MED-001 | 120 → 118 (se descontó la compra) |
+| «Buscar otro medicamento» | buscador limpio y con el foco en el campo |
+| **Última unidad (concurrencia):** `PRB-001` (1 unidad) en el resumen y otra vecina la compra antes de confirmar | 201 para la otra vecina; al confirmar: «Este medicamento ya no tiene stock disponible. No se creó ningún pedido.» con un solo botón, «Volver a los resultados» |
+| Stock final de `PRB-001` | 0 (nunca negativo) y un solo pedido |
+| «Volver a los resultados» | la lista se vuelve a pedir y la tarjeta ya dice «Sin stock», sin botón de compra |
+| Medidas | letra mínima 20 px; «Confirmar pedido» y «Cambiar cantidad» de 64 px |
+| Ancho de 500 px (zoom 200 %) | sin scroll horizontal |
+| Almacenamiento y consola | `localStorage` y `sessionStorage` vacíos; solo el 409 provocado y el `favicon.ico` (404, ya existía) |
+
+**Limitación conocida (no se puede resolver sin cambiar el backend):** si la conexión se corta *después* de que el backend guardó el pedido, la vecina no ve la respuesta y «Intentar de nuevo» crearía un segundo pedido. El mensaje lo advierte («no sabemos si tu pedido se creó… consulta primero en la farmacia») y un 201 ilegible no ofrece reintentar. Los errores 5xx del backend no tienen este problema: la transacción se revierte. Resolverlo del todo requiere una clave de idempotencia en `POST /api/pedidos`, fuera del alcance del Sprint 1.
+
 ## 2c. Flujo integrado búsqueda → selector en navegador real (2026-09-30, noche)
 
 Con `dev` en el commit `895415b` (incluye la búsqueda de Coaffy, #7 y #8), datos del seed, `npm run dev` y Chromium (Playwright). Solo teclado.
@@ -188,6 +213,30 @@ Mutaciones del selector de cantidad (#17):
 | S7 acepta cantidad 0 | 2 |
 | S8 sin stock sigue mostrando el selector | 1 |
 
+Mutaciones de la pantalla de confirmación (#18). Cuentan los 46 tests de `ConfirmarPedido.test.tsx` y `Buscador.test.tsx`; se aplicaron leyendo y escribiendo en UTF-8:
+
+| Mutación | Tests en rojo |
+|---|---|
+| E1 sin la cabecera `Content-Type` (hallazgo A1) | 2 |
+| E2 se envía un total calculado por el cliente | 3 |
+| E3 el éxito muestra el total estimado y no el del backend | 1 |
+| E4 se puede confirmar dos veces (sin guardia) | 2 |
+| E5 no se refresca la búsqueda tras un rechazo | 5 |
+| E6 un rechazo se trata como error reintentable | 5 |
+| E7 `disabled` en vez de `aria-disabled` al confirmar | 1 |
+| E8 un 201 ilegible ofrece reintentar (hallazgo A1) | 4 |
+| E9 cualquier cuerpo 201 se acepta como pedido (hallazgo A1) | 4 |
+| E10 el buscador no se bloquea mientras se confirma (hallazgo A1) | 1 |
+| E11 la confirmación nunca avisa que está ocupada | 2 |
+| E12 el foco no pasa a la confirmación | 4 |
+| E13 el selector sigue visible junto a la confirmación (hallazgo A1) | 2 |
+| E14 tras un rechazo se ofrece cambiar la cantidad con el stock viejo (hallazgo A1) | 3 |
+| E15 «Cambiar cantidad» funciona mientras se confirma | 1 |
+| E16 el refresco usa lo que haya en el campo y no la búsqueda original (hallazgo A2) | 1 |
+| E17 el aviso de foco queda pendiente si el refresco no trae resultados (hallazgo A2) | 1 |
+| E18 el éxito no se anuncia en voz alta (hallazgo A2) | 1 |
+| E19 el foco no va a la lista tras refrescar (hallazgo A2) | 1 |
+
 Mutaciones de las pruebas de US-13 de punta a punta (#14):
 
 | Mutación | Tests en rojo |
@@ -242,6 +291,8 @@ Mutaciones del panel de mantención (#13). Cuentan los 42 tests de `Backoffice.t
 | A1 — tests del panel (#13) antes de implementar | ¿Escenarios sin test? ¿Tests que no pueden fallar o que fuerzan una implementación? | El test del doble clic no podía pasar con ninguna implementación (el botón cambia de nombre al guardar): se reescribió con el mismo botón y `aria-disabled`. Lo guardado que se ve venía siempre igual a lo escrito (P4 pasaba en verde): el fake ahora responde con un stock distinto. Faltaba el caso de un borrador de otra fila cuya version cambió en la recarga (P6) y que «Salir» olvide la clave de verdad. Se agregaron el 404, que `aria-invalid` se limpie y que el aviso del 409 y el foco sobrevivan a la recarga |
 | A2 — implementación de #12 | ¿El candado es atómico? ¿Capas, reglas del CLAUDE.md, regresiones, tests frágiles? | Sin hallazgos altos. Se agregó una guarda en el repository (una `version` ausente se enviaría como NULL y parecería un 409) con su test, y la ejecución en vivo con `version` (sección 2a), porque la evidencia de la sección 2 era anterior a #12 |
 | A1 — tests de #12 antes de implementar | ¿Falta algún escenario del contrato? ¿Algún test no puede fallar? ¿Son confiables los tests con procesos reales? | Se agregó el 409 para un cambio de solo precio (la mutación V4 pasaba en verde), la validación de `version` antes del 404, que `errores` tenga solo `version`, y que el 409 de «otro medicamento» se compruebe de verdad. Los tests concurrentes con reintentos pasaban con o sin candado: se dejaron como pruebas de robustez y se agregó una prueba con 3 procesos reales que usa una versión vieja |
+| A1 — tests de #18 antes de implementar | ¿Escenarios sin test? ¿Tests que no pueden fallar o que fuerzan la estructura? ¿Riesgos funcionales sin cubrir? | Faltaban tres cosas graves: la cabecera `Content-Type: application/json` (sin ella el backend leería el cuerpo vacío y nadie podría comprar), un 201 con forma inesperada (no debe ofrecer reintentar: el pedido ya descontó stock y se crearía otro) y que el buscador no se mueva mientras se confirma (el resultado se perdería). También se decidió que tras un rechazo por stock solo se ofrezca volver a los resultados refrescados (con «Cambiar cantidad» la vecina reabriría el selector con el stock viejo), se protegió «Intentar de nuevo» contra el doble clic, se exigió que el selector desaparezca al abrir el resumen y que cada valor se compruebe dentro de su fila (el total estimado y el del backend valen lo mismo en varios tests) |
+| A2 — implementación de #18 | ¿Carreras, pedidos dobles, estados inconsistentes, reglas del CLAUDE.md, choques con el PR #29? | Sin hallazgos que bloquearan. Se corrigió: «Volver a los resultados» repetía la búsqueda con lo que hubiera en el campo (ahora usa la última búsqueda hecha), el aviso de foco podía quedar pendiente si el refresco no traía resultados, el éxito no se anunciaba a lectores de pantalla (ahora hay una región de estado con el número de pedido), «Buscar» se veía activo mientras estaba bloqueado y quedaba una rama sin uso. Queda documentada la limitación del reintento tras un corte de red (sección 2e). Se comprobó con `git merge-tree` que esta rama integra sin conflictos de código con el PR #29 |
 
 ### Revisión con contexto limpio (G5)
 
@@ -265,7 +316,8 @@ Con `AND version = ?` en el `UPDATE`, `changes === 0` significa «no existe» o 
 ## 6. Pendiente de completar
 
 - ~~A3 antes del PR a `main` y verificación en clon limpio de `dev`~~: hechos (A3 con el advisor Opus y clon limpio de `origin/dev` el 2026-09-30).
+- **#18 (confirmación del pedido) listo para revisión:** el Gherkin de US-15 se ejecuta completo desde la pantalla (sección 2e). Ya está en `dev` (PR #30).
 - **#17 ya se puede cerrar:** el selector está conectado a la búsqueda (#26) y el flujo se verificó con teclado en navegador real (sección 2c). Pasa a Done cuando el PR `dev → main` se mergee. La confirmación del pedido es #18 (Vicenlol09) y no bloquea #17.
 - **#14 ya se puede cerrar tras #12.** Hecho: cambio visible en la búsqueda, valores inválidos que dejan el anterior intacto, cambios mientras ocurren ventas y, con #12, la actualización con **datos viejos** (409; el `it.skip` se activó). Pasa a Done cuando el PR de #12 se mergee.
 - **#13 (panel de mantención) listo para revisión:** el Gherkin de US-13 ya se ejecuta en el panel (sección 2d). Pasa a Done cuando su PR a `dev` se mergee.
-- **Riesgo del Sprint:** #18 (Vicenlol09) sigue en Backlog. Sin #18 la demostración termina en «La confirmación del pedido estará disponible muy pronto».
+- **Riesgo del Sprint:** resuelto. Con #12, #13 y #18 en `dev` ya no queda ninguna tarea abierta del Sprint 1 y la demostración recorre el ciclo completo: buscar → ver precio y stock → elegir cantidad → confirmar → pedido con total y estado «Solicitud creada», más el panel de mantención.
