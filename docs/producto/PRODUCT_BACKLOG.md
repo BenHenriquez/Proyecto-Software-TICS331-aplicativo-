@@ -5,14 +5,14 @@
 >
 > Este archivo es el backlog del **producto**. El compromiso del Sprint 1 está en `docs/sprint-1/META_Y_BACKLOG.md`.
 
-Leyenda de estado: **Ready** (cumple la Definition of Ready) · **Backlog** (sin sprint asignado) · **Por definir** (falta decisión del equipo / PO).
+Leyenda de estado: **Done** (cumple la Definition of Done y fue aceptada por el sponsor) · **Ready** (cumple la Definition of Ready) · **Backlog** (sin sprint asignado) · **Por definir** (falta decisión del equipo / PO).
 
 ## 1. Resumen
 
 | ID | Historia (resumen) | Actor | MoSCoW | Pts | Sprint | Estado |
 |---|---|---|---|---|---|---|
 | US-01 | Consultar por WhatsApp stock, precio y estado del pedido de delivery | Vecino | Should | 5 | Sprint 1 (en la planilla); fuera del alcance de S1 según `META_Y_BACKLOG.md` | Ready |
-| US-02 | Buscar un medicamento por nombre o principio activo | Vecino | Must | 5 | Sprint 1 | Ready |
+| US-02 | Buscar un medicamento por nombre o principio activo | Vecino | Must | 5 | Sprint 1 | Done · aceptada por el sponsor el 01/10/2026 |
 | US-03 | Pagar por Webpay con validación en tiempo real | Vecino | Must | 8 | Sprint 2 | Ready |
 | US-04 | Ver en la web el estado actualizado del pedido a domicilio | Vecino | Must | 3 | Sprint 3 | Ready |
 | US-05 | Pronóstico de demanda con el historial 2021-2025 | Bodega | Should | 13 | Backlog | Backlog |
@@ -23,9 +23,9 @@ Leyenda de estado: **Ready** (cumple la Definition of Ready) · **Backlog** (sin
 | US-10 | Rebajar inventario y actualizar despacho al confirmar una venta | Farmacia | Should | 5 | Sprint 1 (en la planilla) | Ready |
 | US-11 | Retiro de medicamentos por un cuidador registrado | Cuidador | Must | 5 | Sprint 2 | Ready |
 | US-12 | Escanear el pedido antes de entregarlo | Despacho | Should | 3 | Backlog | Backlog |
-| US-13 | Mantener stock: actualizar precio y stock (backoffice) | Funcionaria de backoffice | — | 5 | Sprint 1 | Ready |
+| US-13 | Mantener stock: actualizar precio y stock (backoffice) | Funcionaria de backoffice | — | 5 | Sprint 1 | Done · aceptada por el sponsor el 01/10/2026 |
 | US-14 | Alerta con IA | — | — | — | Fuera del Sprint 1 | Backlog |
-| US-15 | Realizar compra/pedido | Vecina | — | 8 | Sprint 1 | Ready |
+| US-15 | Realizar compra/pedido | Vecina | — | 8 | Sprint 1 | Done · aceptada por el sponsor el 01/10/2026 |
 | US-16 | Carrito de compras con varios medicamentos y un solo pedido | Vecino | Must | 3 | Por definir | Implementada (PR #50); falta aceptación del PO |
 | US-17 | Ingresar con un QR de Neuro-Access y ver mis pedidos | Vecino | Must | 8 | Por definir | Implementada (PR #57); falta aceptación del PO |
 
