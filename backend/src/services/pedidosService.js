@@ -36,7 +36,8 @@ function aVista(pedido) {
 
 export function crearPedidosService(pedidosRepository) {
   return {
-    confirmarPedido({ codigo, cantidad, alias } = {}) {
+    // `vecinoId` viene de la sesión (US-17), nunca del cuerpo: sin sesión, el pedido queda anónimo.
+    confirmarPedido({ codigo, cantidad, alias, vecinoId = null } = {}) {
       if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > CANTIDAD_MAXIMA) {
         return { ok: false, motivo: 'cantidad_invalida', mensaje: MENSAJES.cantidad_invalida };
       }
@@ -44,10 +45,20 @@ export function crearPedidosService(pedidosRepository) {
         return { ok: false, motivo: 'no_existe', mensaje: MENSAJES.no_existe };
       }
 
-      const r = pedidosRepository.confirmarPedido({ codigo: codigo.trim(), cantidad, alias: normalizarAlias(alias) });
+      const r = pedidosRepository.confirmarPedido({
+        codigo: codigo.trim(),
+        cantidad,
+        alias: normalizarAlias(alias),
+        vecinoId,
+      });
       if (r.ok) return { ok: true, pedido: aVista(r.pedido) };
       if (r.motivo === 'sin_stock') return { ok: false, motivo: 'sin_stock', mensaje: mensajeSinStock(r.stockDisponible) };
       return { ok: false, motivo: r.motivo, mensaje: MENSAJES[r.motivo] };
+    },
+
+    // US-17 (#48): pedidos del vecino con sesión, del más reciente al más antiguo.
+    misPedidos(vecinoId) {
+      return pedidosRepository.listarPorVecino(vecinoId).map(aVista);
     },
   };
 }

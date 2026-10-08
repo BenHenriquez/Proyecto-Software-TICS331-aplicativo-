@@ -3,16 +3,29 @@ import { crearRutasHealth } from './routes/health.js';
 import { crearRutasMedicamentos } from './routes/medicamentos.js';
 import { crearRutasPedidos } from './routes/pedidos.js';
 import { crearRutasBackoffice } from './routes/backoffice.js';
+import { crearRutasSesion } from './routes/sesion.js';
+import { crearProveedorSimulado } from './proveedores/identidadSimulada.js';
 
 // Fábrica de la app, separada del listen para poder testearla con supertest.
 // `db` se inyecta para que las historias armen sus repositories sobre ella, y
 // `tokenBackoffice` (simulado, ver README) para que los tests no dependan del .env.
-export function crearApp({ db, tokenBackoffice = '' } = {}) {
+// `proveedorIdentidad` (US-17): Neuro-Access real o simulado (por defecto); `ahora` permite a los
+// tests adelantar el reloj para probar códigos y sesiones vencidas.
+export function crearApp({
+  db,
+  tokenBackoffice = '',
+  proveedorIdentidad = crearProveedorSimulado(),
+  ahora = () => new Date(),
+} = {}) {
   const app = express();
+  // El callback del Neuron trae la identidad firmada (y adjuntos): más espacio que el resto de la API.
+  app.use('/api/sesion/callback', express.json({ limit: '1mb', type: () => true }));
   app.use(express.json());
   app.locals.db = db;
   app.locals.tokenBackoffice = tokenBackoffice;
 
+  // Va primero: deja req.vecino listo para las demás rutas.
+  app.use('/api', crearRutasSesion({ proveedor: proveedorIdentidad, ahora }));
   app.use('/api', crearRutasHealth());
   app.use('/api', crearRutasMedicamentos());
   app.use('/api', crearRutasPedidos());
