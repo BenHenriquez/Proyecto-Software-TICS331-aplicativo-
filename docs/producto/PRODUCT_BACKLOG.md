@@ -26,15 +26,15 @@ Leyenda de estado: **Ready** (cumple la Definition of Ready) · **Backlog** (sin
 | US-13 | Mantener stock: actualizar precio y stock (backoffice) | Funcionaria de backoffice | — | 5 | Sprint 1 | Ready |
 | US-14 | Alerta con IA | — | — | — | Fuera del Sprint 1 | Backlog |
 | US-15 | Realizar compra/pedido | Vecina | — | 8 | Sprint 1 | Ready |
-| US-16 | Carrito de compras con varios medicamentos y un solo pedido | Vecino | Por definir | Por definir | Por definir | Implementada (PR #50); falta aceptación del PO |
-| US-17 | Ingresar con un QR de Neuro-Access y ver mis pedidos | Vecino | Por definir | Por definir | Por definir | Implementada (PR #57); falta aceptación del PO |
+| US-16 | Carrito de compras con varios medicamentos y un solo pedido | Vecino | Must | 3 | Por definir | Implementada (PR #50); falta aceptación del PO |
+| US-17 | Ingresar con un QR de Neuro-Access y ver mis pedidos | Vecino | Must | 8 | Por definir | Implementada (PR #57); falta aceptación del PO |
 
 Notas sobre la tabla:
 
 - US-13, US-14 y US-15 no figuran en la planilla de Inception; vienen del tablero y de `docs/sprint-1/META_Y_BACKLOG.md`. Su MoSCoW no está definido en esas fuentes; hay que confirmarlo.
 - US-14 solo se conoce por el título «alerta con IA» (`META_Y_BACKLOG.md`). Falta su historia.
 - La planilla asigna US-01, US-06 y US-10 al Sprint 1, pero el Sprint 1 comprometido es US-02, US-13 y US-15 (18 pts). **Decisión pendiente:** reasignar sprint a US-01, US-06 y US-10 en la planilla, o dejarlas fuera del Sprint 1 como en `META_Y_BACKLOG.md`.
-- US-16 y US-17 ya están implementadas, pero su MoSCoW y sus puntos siguen sin definir: el equipo debe registrarlos (estimación retroactiva) para completar su DoR.
+- US-16 (Must, 3 pts) y US-17 (Must, 8 pts) se estimaron después de implementarlas (estimación retroactiva del 2026-10-08). Falta asignarles sprint.
 
 ## 2. Detalle de las historias
 
@@ -161,7 +161,7 @@ Y si no hay coincidencias exactas, debe sugerir principios activos o presentacio
 
 **Historia:** Como vecino que utiliza el sitio web de la farmacia, quiero tener un carrito de compras de todos los medicamentos que seleccione, para tener solo un pedido.
 
-**MoSCoW / puntos / sprint:** por definir con el equipo y el PO. **Implementada** en el PR #50 (sub-issues #51 a #56).
+**MoSCoW / puntos / sprint:** Must · 3 pts · sprint por definir. **Implementada** en el PR #50 (sub-issues #51 a #56).
 
 **Criterios (Given/When/Then), los del issue #42:**
 
@@ -177,7 +177,7 @@ Y si no hay coincidencias exactas, debe sugerir principios activos o presentacio
 
 **Historia:** Como vecino que usa el sitio de FarmacIA, quiero ingresar escaneando un QR con mi app Neuro-Access, para no tener que crear usuario ni recordar contraseñas y que mis pedidos queden a mi nombre.
 
-**MoSCoW / puntos:** por definir con el equipo y el PO. **Implementada** en el PR #57 (sub-issues #44 a #49).
+**MoSCoW / puntos / sprint:** Must · 8 pts · sprint por definir. **Implementada** en el PR #57 (sub-issues #44 a #49).
 
 **Criterios (Given/When/Then), los mismos del issue #43:**
 
