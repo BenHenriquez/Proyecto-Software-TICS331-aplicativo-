@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ConfirmarPedido from '../components/ConfirmarPedido';
 import SelectorCantidad from '../components/SelectorCantidad';
+import Icono from '../components/Icono';
 import TarjetaMedicamento from '../components/TarjetaMedicamento';
 import { buscarMedicamentos, ErrorApi, type Medicamento } from '../lib/api';
 import { CANTIDAD_MAXIMA_POR_MEDICAMENTO, MEDICAMENTOS_MAXIMOS, useCarritoOpcional } from '../lib/carrito';
@@ -205,8 +206,9 @@ export default function Buscador() {
 
       {estado.tipo === 'resultados' && elegido && cantidad === null && (
         <div ref={zonaSelector} className="zona-selector" tabIndex={-1} aria-label={`Elegir cantidad de ${elegido.nombre}`}>
-          <button type="button" className="boton-secundario" onClick={volver}>
-            <span aria-hidden="true">← </span>Volver a los resultados
+          <button type="button" className="boton-volver" onClick={volver}>
+            <Icono nombre="volver" />
+            Volver a los resultados
           </button>
           <SelectorCantidad
             medicamento={elegido}

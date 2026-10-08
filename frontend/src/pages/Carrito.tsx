@@ -10,6 +10,7 @@ import {
 } from '../lib/api';
 import { CANTIDAD_MAXIMA_POR_MEDICAMENTO, useCarrito, type ItemCarrito } from '../lib/carrito';
 import { formatoPesos } from '../lib/formato';
+import AvisoPedidoANombre from '../components/AvisoPedidoANombre';
 import './Carrito.css';
 
 // US-16 Carrito (#42): la vecina revisa todo lo que eligió, ajusta cantidades, quita lo que no quiere y
@@ -141,7 +142,7 @@ function FilaCarrito({ item, faltante, noDisponible = false, ocupado, onCambiar,
 
       <button
         type="button"
-        className="boton-secundario fila-carrito__quitar"
+        className="boton-quitar fila-carrito__quitar"
         aria-label={`Quitar ${nombre} del carrito`}
         aria-disabled={ocupado}
         onClick={() => !ocupado && onQuitar(item)}
@@ -270,6 +271,7 @@ export default function Carrito() {
           </ul>
           <p className="carrito__total">{`Total: ${formatoPesos(estado.pedido.total)}`}</p>
           <p className="carrito__nota">Anota tu número de pedido.</p>
+          <AvisoPedidoANombre />
           <Link to="/" className="boton-enlace boton-enlace--principal">
             Buscar otro medicamento
           </Link>

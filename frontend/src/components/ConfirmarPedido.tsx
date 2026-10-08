@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { confirmarPedido, ErrorApi, ErrorPedidoIncierto, ErrorPedidoRechazado, type Pedido } from '../lib/api';
 import { formatoPesos } from '../lib/formato';
-import { useSesion } from '../lib/sesion';
+import AvisoPedidoANombre from './AvisoPedidoANombre';
+import PasosCompra from './PasosCompra';
 import './ConfirmarPedido.css';
 
 // #18 Pantalla de confirmación (US-15): resumen del pedido, botón de confirmar y mensaje de éxito
@@ -56,7 +57,6 @@ export default function ConfirmarPedido({
 }: Props) {
   const [estado, setEstado] = useState<Estado>({ tipo: 'resumen' });
   // US-17 (#48): con sesión, el backend deja el pedido a nombre del vecino.
-  const { vecino } = useSesion();
   const zona = useRef<HTMLElement>(null);
   const enviando = useRef(false);
   const { codigo, nombre, precioUnitario } = medicamento;
@@ -106,6 +106,7 @@ export default function ConfirmarPedido({
       <p className="confirmar__anuncio" role="status">
         {anuncio}
       </p>
+      <PasosCompra actual={estado.tipo === 'exito' ? 'Listo' : 'Revisar'} />
       {estado.tipo === 'exito' ? (
         <>
           <h2 className="confirmar__titulo">Tu pedido fue creado</h2>
@@ -117,11 +118,8 @@ export default function ConfirmarPedido({
             <Fila etiqueta="Total">{formatoPesos(estado.pedido.total)}</Fila>
             <Fila etiqueta="Estado">{estado.pedido.estado}</Fila>
           </dl>
-          <p className="confirmar__nota">
-            {vecino
-              ? `Quedó a tu nombre, ${vecino.nombre}. Puedes revisarlo en «Mis pedidos».`
-              : 'Anota tu número de pedido.'}
-          </p>
+          <p className="confirmar__nota">Anota tu número de pedido.</p>
+          <AvisoPedidoANombre />
           <button type="button" className="confirmar__principal" onClick={onNuevaBusqueda}>
             Buscar otro medicamento
           </button>

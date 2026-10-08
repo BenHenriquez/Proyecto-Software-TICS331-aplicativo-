@@ -1,5 +1,7 @@
 import { useId, useState } from 'react';
 import { formatoPesos } from '../lib/formato';
+import Icono from './Icono';
+import PasosCompra from './PasosCompra';
 import './SelectorCantidad.css';
 
 // Espejo de CANTIDAD_MAXIMA en backend/src/services/pedidosService.js. El backend sigue siendo
@@ -66,6 +68,7 @@ function SelectorDeCantidad({ medicamento, onContinuar, onAgregar }: Props) {
 
   return (
     <section className="selector" aria-label={`Comprar ${nombre}`}>
+      <PasosCompra actual="Cantidad" />
       <h2 className="selector__nombre">{nombre}</h2>
       <p className="selector__precio">{`Precio por unidad: ${formatoPesos(precioUnitario)}`}</p>
 
@@ -127,16 +130,20 @@ function SelectorDeCantidad({ medicamento, onContinuar, onAgregar }: Props) {
       >
         Continuar con el pedido
       </button>
+      {/* Con carrito hay dos caminos: cada uno dice qué pasa al tocarlo. */}
+      {onAgregar && <p className="selector__ayuda">Pides solo este medicamento ahora.</p>}
       {onAgregar && (
         <button
           type="button"
-          className="boton-secundario selector__agregar"
+          className="boton-secundario boton-con-icono selector__agregar"
           disabled={cantidad === null}
           onClick={() => cantidad !== null && onAgregar(cantidad)}
         >
+          <Icono nombre="mas" />
           Agregar al carrito
         </button>
       )}
+      {onAgregar && <p className="selector__ayuda">Sigues buscando y pides todo junto al final.</p>}
     </section>
   );
 }

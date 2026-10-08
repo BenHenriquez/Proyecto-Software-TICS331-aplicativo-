@@ -180,7 +180,7 @@ export default function Ingresar() {
           <Link className="ingresar__enlace-boton" to="/">
             Buscar un medicamento
           </Link>
-          <Link className="ingresar__enlace-boton" to="/mis-pedidos">
+          <Link className="ingresar__enlace-boton ingresar__enlace-boton--secundario" to="/mis-pedidos">
             Ver mis pedidos
           </Link>
         </div>

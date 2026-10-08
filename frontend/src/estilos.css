@@ -9,7 +9,8 @@
   --foco: #ffbf00;
   --aviso-fondo: #fff4d6;
 
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  /* Atkinson Hyperlegible distingue letras parecidas (I, l, 1; O, 0); la del sistema es el respaldo. */
+  font-family: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   font-size: 20px;
   line-height: 1.5;
   color: var(--texto);
@@ -41,6 +42,19 @@ a {
   box-shadow: 0 0 0 7px var(--texto);
 }
 
+/* Iconos de línea (components/Icono.tsx): siempre junto a un texto, centrados con él. */
+.icono {
+  display: block;
+  flex: none;
+  width: 1.2em;
+  height: 1.2em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 main:focus {
   outline: none;
 }
@@ -57,43 +71,6 @@ main:focus {
 
 .saltar:focus {
   top: 1rem;
-}
-
-.cabecera {
-  background: var(--primario);
-  color: var(--primario-texto);
-  padding: 1rem;
-}
-
-.marca {
-  margin: 0 0 0.5rem;
-  font-weight: 700;
-  font-size: 1.2rem;
-}
-
-.menu {
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0;
-}
-
-.menu a {
-  display: inline-block;
-  min-height: 48px;
-  padding: 0.6rem 1rem;
-  color: var(--primario-texto);
-  border: 2px solid var(--primario-texto);
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.menu a[aria-current='page'] {
-  background: var(--primario-texto);
-  color: var(--primario);
 }
 
 main {
@@ -188,18 +165,88 @@ button[aria-disabled='true'] {
   outline: none;
 }
 
+.boton-con-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* Cuatro niveles de botón (arreglo general de UX/UI):
+   principal = <button> por defecto o .boton-enlace--principal; secundario = .boton-secundario o .boton-enlace;
+   volver = .boton-volver (texto con flecha, arriba a la izquierda); quitar = .boton-quitar (borde rojo). */
+/* Enlaces que se ven y se usan como botones grandes. */
+.boton-enlace {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--primario);
+  border-radius: 8px;
+  background: var(--fondo);
+  color: var(--primario);
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+}
+
+.boton-enlace--principal {
+  min-height: 64px;
+  background: var(--primario);
+  color: var(--primario-texto);
+  font-size: 1.3rem;
+}
+
+.boton-volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  justify-self: start;
+  min-height: 48px;
+  padding: 0.25rem 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--primario);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.boton-quitar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border: 2px solid #8a0000;
+  background: var(--fondo);
+  color: #8a0000;
+}
+
+/* Texto solo para el lector de pantalla. */
+.solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Después de comprar: «Quedó a tu nombre…» o la invitación a ingresar. */
+.pedido-a-nombre {
+  margin: 0;
+  font-size: 1rem;
+}
+
 .boton-secundario {
   justify-self: start;
   background: var(--fondo);
   color: var(--primario);
-}
-
-.pie {
-  max-width: 48rem;
-  margin: 2rem auto 0;
-  padding: 1rem;
-  border-top: 2px solid var(--suave);
-  font-size: 1rem;
 }
 
 @media (min-width: 40rem) {

@@ -103,7 +103,7 @@ describe('Backoffice (panel de mantención)', () => {
     it('pide la clave y explica que es simulada, sin mostrar medicamentos todavía', () => {
       mostrar();
 
-      expect(screen.getByRole('heading', { name: 'Backoffice de la farmacia' })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Precios y stock' })).toBeTruthy();
       expect((screen.getByLabelText('Clave del equipo') as HTMLInputElement).type).toBe('password');
       expect(screen.getByText(/no es una autenticación real/i)).toBeTruthy();
       expect(screen.queryByRole('article')).toBeNull();
@@ -174,7 +174,7 @@ describe('Backoffice (panel de mantención)', () => {
       await entrar();
       await screen.findByRole('article', { name: 'Losartán 50 mg' });
 
-      await usuario.click(screen.getByRole('button', { name: 'Salir del backoffice' }));
+      await usuario.click(screen.getByRole('button', { name: 'Cerrar el panel' }));
 
       expect(screen.queryByRole('article')).toBeNull();
       expect((campoClave() as HTMLInputElement).value).toBe('');
@@ -631,7 +631,7 @@ describe('Backoffice (panel de mantención)', () => {
       await escribir(usuario, precio('Losartán 50 mg'), '2500');
       await usuario.click(guardar('Losartán 50 mg'));
 
-      await usuario.click(screen.getByRole('button', { name: 'Salir del backoffice' }));
+      await usuario.click(screen.getByRole('button', { name: 'Cerrar el panel' }));
       terminar(new Response(JSON.stringify({ medicamento: { ...losartan50, precioUnitario: 2500, version: 1 } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
       await usuario.type(campoClave(), `${CLAVE}{Enter}`);
 
@@ -665,9 +665,9 @@ describe('Backoffice (panel de mantención)', () => {
       await entrar(); // escribe la clave y presiona Enter
       await screen.findByRole('article', { name: 'Losartán 50 mg' });
 
-      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('region', { name: 'Medicamentos del backoffice' })));
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('region', { name: 'Medicamentos del panel' })));
       await usuario.tab();
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Salir del backoffice' }));
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cerrar el panel' }));
       await usuario.tab();
       expect(document.activeElement).toBe(precio('Losartán 50 mg'));
       await usuario.tab();

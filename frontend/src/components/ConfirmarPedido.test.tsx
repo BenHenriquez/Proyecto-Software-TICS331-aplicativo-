@@ -50,8 +50,9 @@ function mostrar(cantidad = 2, medicamento = losartan100) {
 }
 
 const cuerpoDelPost = () => JSON.parse(String(fetchFalso.mock.calls[0][1].body));
-// Cada dato va en su fila (dt/dd): se busca el valor dentro de la fila de su etiqueta.
-const fila = (etiqueta: string) => within(screen.getByText(etiqueta).closest('div') as HTMLElement);
+// Cada dato va en su fila (dt/dd): se busca el valor dentro de la fila de su etiqueta. Solo entre las
+// etiquetas (dt), porque «Cantidad» también es un paso del indicador de pasos de la compra.
+const fila = (etiqueta: string) => within(screen.getByText(etiqueta, { selector: 'dt' }).closest('div') as HTMLElement);
 const botones = (zona: HTMLElement) => within(zona).getAllByRole('button').map((b) => b.textContent?.trim());
 
 describe('ConfirmarPedido', () => {
