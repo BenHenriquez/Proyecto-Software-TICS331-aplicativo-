@@ -1,10 +1,11 @@
 @startuml componentes-sprint1
 ' Diagrama de componentes del Sprint 1 · FARMAC-IA (TICS331 · Equipo BBMVV)
 ' Historias: US-02 Consultar medicamento (#1) · US-13 Mantener stock (#2) · US-15 Realizar compra/pedido (#3)
+' · US-16 Carrito (#42, agregado después del Sprint 1; US-17 ingreso va en componentes-us17.puml)
 ' Los nombres son los del código: frontend/src/** y backend/src/** (cada componente indica su archivo).
 ' Si cambian nombres de clases, funciones o endpoints, actualizar este archivo.
 
-title FARMAC-IA · Diagrama de componentes (Sprint 1)
+title FARMAC-IA · Diagrama de componentes (Sprint 1 + carrito US-16)
 
 skinparam componentStyle uml2
 skinparam shadowing false
@@ -23,6 +24,7 @@ skinparam database {
 !$us02 = "#DAE8FC"
 !$us13 = "#D5E8D4"
 !$us15 = "#FFE6CC"
+!$us16 = "#E0F2F1"
 !$comp = "#EEEEEE"
 
 ' =====================================================================
@@ -31,12 +33,13 @@ skinparam database {
 package "Navegador · frontend (React + Vite)" as Frontend {
 
   component "main.tsx\n(BrowserRouter)" as main $comp
-  component "App\n(App.tsx · rutas / y /backoffice)" as App $comp
-  component "Layout\n(components/Layout.tsx)" as Layout $comp
+  component "App\n(App.tsx · rutas /, /carrito y /backoffice)" as App $comp
+  component "Layout\n(components/Layout.tsx)\nmenú con «Mi carrito (N)»" as Layout $comp
   component "NoEncontrada\n(pages/NoEncontrada.tsx)" as NoEncontrada $comp
 
   package "Páginas" {
     component "Buscador\n(pages/Buscador.tsx)\nUS-02 + US-15" as Buscador $us02
+    component "Carrito\n(pages/Carrito.tsx)\nUS-16 #42" as Carrito $us16
     component "Backoffice\n(pages/Backoffice.tsx)\nUS-13" as Backoffice $us13
   }
 
@@ -48,7 +51,8 @@ package "Navegador · frontend (React + Vite)" as Frontend {
   }
 
   package "lib" {
-    component "api\n(lib/api.ts)\nbuscarMedicamentos · confirmarPedido\nlistarBackoffice · guardarMedicamento" as api $comp
+    component "api\n(lib/api.ts)\nbuscarMedicamentos · confirmarPedido\nconfirmarCarrito\nlistarBackoffice · guardarMedicamento" as api $comp
+    component "carrito\n(lib/carrito.tsx)\nCarritoProvider · useCarrito · useCarritoOpcional\nguardado en el navegador (localStorage)" as carritoLib $us16
     component "formato\n(lib/formato.ts)\nformatoPesos" as formato $comp
   }
 }
@@ -74,7 +78,7 @@ package "Servidor · backend (Node 20 + Express)" as Backend {
 
   package "services" {
     component "crearMedicamentosService\n(services/medicamentosService.js)\nbuscar(q) · normalizarBusqueda" as medicamentosService $us02
-    component "crearPedidosService\n(services/pedidosService.js)\nconfirmarPedido()" as pedidosService $us15
+    component "crearPedidosService\n(services/pedidosService.js)\nconfirmarPedido() · compra simple o { items }\nCANTIDAD_MAXIMA · ITEMS_MAXIMOS" as pedidosService $us15
     component "crearBackofficeService\n(services/backofficeService.js)\nlistarMedicamentos()\nactualizarMedicamento()" as backofficeService $us13
   }
 
@@ -97,6 +101,7 @@ package "Servidor · backend (Node 20 + Express)" as Backend {
 database "SQLite · farmacia.db\n(better-sqlite3 · db/schema.sql)" as SQLite {
   component "medicamentos\n(stock, precio_unitario,\nbusqueda, version)" as tablaMedicamentos <<tabla>> $comp
   component "pedidos\n(numero_pedido, total,\nestado)" as tablaPedidos <<tabla>> $us15
+  component "pedido_items\n(un ítem por medicamento:\ncantidad, precio, subtotal)" as tablaItems <<tabla>> $us16
 }
 
 artifact "medicamentos_semilla.csv\n(seed/ · datos sintéticos)" as csv $comp
@@ -107,6 +112,7 @@ artifact "medicamentos_semilla.csv\n(seed/ · datos sintéticos)" as csv $comp
 main --> App
 App --> Layout
 App --> Buscador
+App --> Carrito
 App --> Backoffice
 App --> NoEncontrada
 
@@ -115,8 +121,15 @@ Buscador --> SelectorCantidad : "onContinuar(cantidad)"
 Buscador --> ConfirmarPedido
 Backoffice --> FilaMantencion
 
+main --> carritoLib : envuelve con CarritoProvider
+Layout --> carritoLib : unidades (useCarritoOpcional)
+Buscador --> carritoLib : agregar (useCarritoOpcional)
+Carrito --> carritoLib : items · cambiarCantidad · quitar · vaciar
+Carrito --> formato
+
 Buscador --> api : buscarMedicamentos
 ConfirmarPedido --> api : confirmarPedido
+Carrito --> api : confirmarCarrito
 Backoffice --> api : listarBackoffice\nguardarMedicamento
 
 TarjetaMedicamento --> formato
@@ -126,7 +139,7 @@ FilaMantencion --> formato
 
 ' Frontend → Backend por HTTP (en desarrollo, Vite hace proxy de /api a localhost:PORT)
 api --> crearRutasMedicamentos : HTTP GET /api/medicamentos?q=
-api --> crearRutasPedidos : HTTP POST /api/pedidos
+api --> crearRutasPedidos : HTTP POST /api/pedidos\n(un medicamento, o { items } del carrito)
 api --> crearRutasBackoffice : HTTP GET /api/backoffice/medicamentos\nHTTP PUT /api/backoffice/medicamentos/:codigo
 
 ' =====================================================================
@@ -161,6 +174,7 @@ semillaCsv ..> csv : lee
 medicamentosRepository --> tablaMedicamentos
 pedidosRepository --> tablaMedicamentos : descuenta stock\n(stock >= cantidad)
 pedidosRepository --> tablaPedidos : inserta pedido
+pedidosRepository --> tablaItems : inserta los ítems
 dbModulo ..> SQLite : abre y crea esquema
 
 legend right
@@ -168,6 +182,7 @@ legend right
   |<#DAE8FC>   | US-02 Consultar medicamento (#1) |
   |<#D5E8D4>   | US-13 Mantener stock (#2) |
   |<#FFE6CC>   | US-15 Realizar compra/pedido (#3) |
+  |<#E0F2F1>   | US-16 Carrito (#42) |
   |<#EEEEEE>   | Compartido por varias historias |
   Reglas: el precio y el total se calculan en el backend;
   solo los repositories tocan SQLite.
