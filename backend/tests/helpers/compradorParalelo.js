@@ -12,6 +12,6 @@ while (Date.now() < Number(inicio)) {
   // espera activa: arrancar todos en el mismo milisegundo
 }
 
-const r = repo.confirmarPedido({ codigo, cantidad: Number(cantidad) });
+const r = repo.confirmarPedido({ items: [{ codigo, cantidad: Number(cantidad) }] });
 db.close();
 process.stdout.write(JSON.stringify({ ok: r.ok, motivo: r.motivo ?? null, cantidad: Number(cantidad) }));
