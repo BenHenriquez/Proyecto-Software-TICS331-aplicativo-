@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import FilaMantencion, { type AvisoFila } from '../components/FilaMantencion';
+import Icono from '../components/Icono';
 import {
   ErrorApi,
   ErrorConflicto,
@@ -141,7 +142,7 @@ export default function Backoffice() {
 
   return (
     <section aria-labelledby="titulo-backoffice">
-      <h1 id="titulo-backoffice">Backoffice de la farmacia</h1>
+      <h1 id="titulo-backoffice">Precios y stock</h1>
       <p>Espacio para el equipo de la farmacia: revisar y actualizar precios y stock.</p>
 
       {estado.tipo === 'acceso' && (
@@ -182,9 +183,11 @@ export default function Backoffice() {
       )}
 
       {estado.tipo === 'listado' && (
-        <section ref={zonaListado} className="panel" tabIndex={-1} aria-label="Medicamentos del backoffice">
-          <button type="button" className="boton-secundario" onClick={() => cerrarSesion()}>
-            Salir del backoffice
+        <section ref={zonaListado} className="panel" tabIndex={-1} aria-label="Medicamentos del panel">
+          {/* Borra la clave simulada de la memoria de la página y vuelve al ingreso. */}
+          <button type="button" className="boton-secundario boton-con-icono" onClick={() => cerrarSesion()}>
+            <Icono nombre="salir" />
+            Cerrar el panel
           </button>
           <p role="status">{medicamentos.length > 0 ? textoCantidad(medicamentos.length) : ''}</p>
 

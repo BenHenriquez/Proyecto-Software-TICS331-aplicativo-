@@ -41,6 +41,19 @@ a {
   box-shadow: 0 0 0 7px var(--texto);
 }
 
+/* Iconos de línea (components/Icono.tsx): siempre junto a un texto, centrados con él. */
+.icono {
+  display: block;
+  flex: none;
+  width: 1.2em;
+  height: 1.2em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 main:focus {
   outline: none;
 }
@@ -149,6 +162,13 @@ button[aria-disabled='true'] {
 
 .zona-selector:focus {
   outline: none;
+}
+
+.boton-con-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .boton-secundario {
