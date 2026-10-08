@@ -21,4 +21,11 @@ export const config = {
   // Token SIMULADO del backoffice (ver README). No es un mecanismo de seguridad real.
   tokenBackoffice: process.env.BACKOFFICE_TOKEN ?? '',
   rutaSemilla: path.join(dirBackend, 'seed', 'medicamentos_semilla.csv'),
+  // US-17: "neuron" usa Quick Login de Neuro-Access; cualquier otro valor, el proveedor simulado.
+  identidad: {
+    proveedor: process.env.IDENTIDAD_PROVEEDOR === 'neuron' ? 'neuron' : 'simulado',
+    neuronDominio: process.env.NEURON_DOMINIO || 'lab.tagroot.io',
+    // URL HTTPS pública que llega a este backend (túnel cloudflared en desarrollo).
+    urlPublicaApi: (process.env.URL_PUBLICA_API ?? '').replace(/\/+$/, ''),
+  },
 };

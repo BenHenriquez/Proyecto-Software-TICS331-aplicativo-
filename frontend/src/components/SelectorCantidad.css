@@ -111,3 +111,18 @@
   color: #5c0000;
   font-weight: 800;
 }
+
+/* US-16: segunda acción del selector, debajo de «Continuar con el pedido». */
+.selector__agregar {
+  width: 100%;
+  min-height: 64px;
+  margin-top: 0.75rem;
+  font-size: 1.3rem;
+}
+
+.selector__agregar:disabled {
+  background: #e3e8ee;
+  border: 2px dashed var(--borde);
+  color: #3a3a3a;
+  cursor: not-allowed;
+}

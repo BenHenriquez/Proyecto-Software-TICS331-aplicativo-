@@ -18,6 +18,8 @@ interface Props {
   medicamento: MedicamentoComprable;
   // Entrega solo la cantidad: el precio y el total los calcula el backend (regla 1).
   onContinuar: (cantidad: number) => void;
+  // US-16: si viene, se ofrece también «Agregar al carrito» con la misma cantidad.
+  onAgregar?: (cantidad: number) => void;
 }
 
 // Solo enteros entre 1 y el máximo; "", "0", "1.5", "-2" o "25" no son cantidades válidas.
@@ -27,7 +29,7 @@ function leerCantidad(texto: string, maximo: number): number | null {
   return cantidad >= 1 && cantidad <= maximo ? cantidad : null;
 }
 
-function SelectorDeCantidad({ medicamento, onContinuar }: Props) {
+function SelectorDeCantidad({ medicamento, onContinuar, onAgregar }: Props) {
   const { nombre, precioUnitario, stock } = medicamento;
   const idCampo = useId();
   const idAyuda = useId();
@@ -125,6 +127,16 @@ function SelectorDeCantidad({ medicamento, onContinuar }: Props) {
       >
         Continuar con el pedido
       </button>
+      {onAgregar && (
+        <button
+          type="button"
+          className="boton-secundario selector__agregar"
+          disabled={cantidad === null}
+          onClick={() => cantidad !== null && onAgregar(cantidad)}
+        >
+          Agregar al carrito
+        </button>
+      )}
     </section>
   );
 }

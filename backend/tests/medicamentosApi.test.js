@@ -93,7 +93,11 @@ describe('GET /api/medicamentos?q=', () => {
     await request(app)
       .put('/api/backoffice/medicamentos/MED-001')
       .set('x-backoffice-token', 'token-de-prueba')
-      .send({ precioUnitario: 2100, stock: 0 })
+      .send({
+        precioUnitario: 2100,
+        stock: 0,
+        version: db.prepare("SELECT version FROM medicamentos WHERE codigo = 'MED-001'").get().version,
+      })
       .expect(200);
 
     const res = await buscar('losartan 50');

@@ -1,0 +1,22 @@
+/* Panel de mantención (US-13, #13). Usa los tokens de estilos.css. */
+.panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.panel:focus {
+  outline: none;
+}
+
+.panel > p[role='status'] {
+  margin: 0;
+  font-weight: 700;
+}
+
+.panel__lista {
+  list-style: none;
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+}

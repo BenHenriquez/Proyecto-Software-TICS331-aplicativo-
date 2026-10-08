@@ -1,0 +1,77 @@
+@startuml secuencia-us17-ingreso
+' Diagrama de secuencia del ingreso con QR · US-17 (#43) · FARMAC-IA (TICS331 · Equipo BBMVV)
+' Quick Login de TAG en "modo back-end": https://lab.tagroot.io/QuickLogin.md
+' Los nombres son los del código (backend/src/**, frontend/src/**). Si cambian, actualizar este archivo.
+
+title FARMAC-IA · Ingreso con Neuro-Access (US-17)
+
+skinparam shadowing false
+skinparam defaultFontSize 13
+skinparam sequenceMessageAlign left
+skinparam ParticipantPadding 12
+
+actor "Vecino" as Vecino
+participant "Ingresar\n(pages/Ingresar.tsx)" as Ingresar
+participant "crearRutasSesion\n(routes/sesion.js)" as Rutas
+participant "crearSesionService\n(services/sesionService.js)" as Servicio
+participant "crearSesionesRepository\n(repositories/sesionesRepository.js)" as Repo
+participant "crearProveedorNeuron\n(proveedores/identidadNeuron.js)" as Proveedor
+participant "TAG Neuron®\nlab.tagroot.io" as Neuron
+participant "App Neuro-Access\n(teléfono)" as App
+
+== Pedir el código ==
+Vecino -> Ingresar : abre /ingresar
+Ingresar -> Rutas : POST /api/sesion/qr
+Rutas -> Servicio : iniciarIngreso()
+Servicio -> Servicio : llave y secreto aleatorios,\nvence en 5 minutos
+Servicio -> Repo : crearIntento({ llaveHash, secretoHash, venceEn })
+Servicio -> Proveedor : iniciar({ secreto, proposito })
+Proveedor -> Neuron : POST /QuickLogin\n{ service: URL del callback, sessionId: secreto }
+Neuron --> Proveedor : { serviceId }
+Proveedor -> Neuron : POST /QuickLogin\n{ serviceId, tab, mode: "base64", purpose }
+Neuron --> Proveedor : { base64, contentType, signUrl }
+Proveedor --> Servicio : { qr, enlace }
+Servicio --> Rutas : { llave, venceEn, modo, qr, enlace }
+Rutas --> Ingresar : 201 { modo, qr, enlace, venceEn }\nSet-Cookie farmacia_ingreso=llave (httpOnly)
+note right of Rutas
+  El secreto nunca llega al navegador:
+  solo lo conocen el backend y el Neuron.
+end note
+Ingresar --> Vecino : muestra el QR y los pasos
+
+== Esperar la aprobación ==
+loop cada 2 segundos mientras está pendiente
+  Ingresar -> Rutas : GET /api/sesion/qr (cookie farmacia_ingreso)
+  Rutas -> Servicio : consultarIngreso(llave)
+  Servicio --> Ingresar : { estado: "pendiente", venceEn }
+end
+
+Vecino -> App : escanea el QR y aprueba la solicitud
+App -> Neuron : firma la solicitud con su identidad
+Neuron -> Rutas : POST /api/sesion/callback (vía túnel HTTPS)\n{ SessionId, Id, State, Properties, To, … }
+Rutas -> Servicio : recibirAprobacion(cuerpo)
+Servicio -> Repo : buscarIntentoPorSecreto(hash(SessionId))
+alt intento pendiente y vigente, State = "Approved", identidad vigente
+  Servicio -> Repo : aprobarIntento({ identidadId, nombre })\n(solo Id y nombre de pila)
+  Rutas --> Neuron : 200 null
+else secreto desconocido, repetido o vencido
+  Rutas --> Neuron : 409 { motivo: "intento_invalido" }
+else identidad no aprobada o vencida
+  Servicio -> Repo : rechazarIntento(llaveHash)
+  Rutas --> Neuron : 409 { motivo: "identidad_no_aprobada" }
+end
+
+== Canjear el intento por la sesión ==
+Ingresar -> Rutas : GET /api/sesion/qr (cookie farmacia_ingreso)
+Rutas -> Servicio : consultarIngreso(llave)
+Servicio -> Repo : canjearIntento({ llaveHash, tokenHash, venceEn: +8 h })\n(una sola vez)
+Servicio --> Rutas : { estado: "aprobado", vecino, sesion }
+Rutas --> Ingresar : 200 { estado: "aprobado", vecino: { nombre } }\nSet-Cookie farmacia_sesion=token (httpOnly)
+Ingresar --> Vecino : «¡Hola, Rosa! Ya ingresaste.»
+
+== Si pasan 5 minutos sin aprobar ==
+Ingresar -> Rutas : GET /api/sesion/qr
+Rutas --> Ingresar : { estado: "vencido", mensaje }
+Ingresar --> Vecino : mensaje y botón «Generar un código nuevo»
+
+@enduml
