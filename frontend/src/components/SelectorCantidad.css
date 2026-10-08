@@ -126,3 +126,10 @@
   color: #3a3a3a;
   cursor: not-allowed;
 }
+
+/* Ayuda bajo cada uno de los dos caminos (arreglo general de UX/UI). */
+.selector__ayuda {
+  margin: -0.25rem 0 0.25rem;
+  font-size: 0.95rem;
+  color: #3a3a3a;
+}

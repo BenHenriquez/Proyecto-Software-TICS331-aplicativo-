@@ -192,29 +192,6 @@ p.carrito__total {
   cursor: progress;
 }
 
-/* Enlaces que se ven y se usan como botones grandes. */
-.boton-enlace {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 56px;
-  padding: 0.5rem 1rem;
-  border: 2px solid var(--primario);
-  border-radius: 8px;
-  background: var(--fondo);
-  color: var(--primario);
-  font-weight: 700;
-  text-decoration: none;
-  text-align: center;
-}
-
-.boton-enlace--principal {
-  min-height: 64px;
-  background: var(--primario);
-  color: var(--primario-texto);
-  font-size: 1.3rem;
-}
-
 /* Solo para lector de pantalla: anuncia «Confirmando…», los cambios del carrito y el número de pedido. */
 .carrito__anuncio {
   position: absolute;

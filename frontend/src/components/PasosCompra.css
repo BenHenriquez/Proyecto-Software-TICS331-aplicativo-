@@ -1,0 +1,48 @@
+/* Indicador de pasos de la compra. Usa los tokens de estilos.css. */
+.pasos-compra {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.25rem;
+}
+
+.pasos-compra__paso {
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #4a5561;
+  text-align: center;
+}
+
+.pasos-compra__marca {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  font-variant-numeric: tabular-nums;
+}
+
+.pasos-compra__paso--hecho {
+  color: var(--primario);
+}
+
+.pasos-compra__paso--hecho .pasos-compra__marca {
+  background: var(--primario);
+  border-color: var(--primario);
+  color: var(--primario-texto);
+}
+
+.pasos-compra__paso--actual {
+  color: var(--texto);
+}
+
+.pasos-compra__paso--actual .pasos-compra__marca {
+  background: var(--foco);
+  border-color: var(--texto);
+}

@@ -73,6 +73,12 @@
   text-decoration: none;
 }
 
+.ingresar__enlace-boton--secundario {
+  background: var(--fondo);
+  color: var(--primario);
+  border: 2px solid var(--primario);
+}
+
 /* Mis pedidos */
 .mis-pedidos__lista {
   list-style: none;

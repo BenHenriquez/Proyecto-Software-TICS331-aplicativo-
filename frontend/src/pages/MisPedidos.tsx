@@ -48,9 +48,9 @@ export default function MisPedidos() {
       {estado.tipo === 'sin-sesion' && (
         <div className="aviso">
           <p>{estado.mensaje}</p>
-          <p>
-            <Link to="/ingresar">Ingresar con Neuro-Access</Link>
-          </p>
+          <Link to="/ingresar" className="boton-enlace boton-enlace--principal">
+            Ingresar con Neuro-Access
+          </Link>
         </div>
       )}
 
