@@ -343,6 +343,26 @@ describe('ConfirmarPedido', () => {
     });
   });
 
+  describe('clic tardío tras el éxito', () => {
+    it('no crea un segundo pedido si se vuelve a hacer clic antes de que React quite el botón', async () => {
+      let terminar!: (r: Response) => void;
+      fetchFalso.mockReturnValue(new Promise<Response>((r) => (terminar = r)));
+      const { usuario, confirmar } = mostrar(2);
+      const boton = confirmar();
+
+      await usuario.click(boton);
+      terminar(new Response(JSON.stringify({ pedido: pedidoCreado }), { status: 201, headers: { 'Content-Type': 'application/json' } }));
+      // Clics en cada turno de microtareas: React aún no pintó el éxito, así que el botón sigue en pantalla.
+      for (let i = 0; i < 20; i++) {
+        boton.click();
+        await Promise.resolve();
+      }
+
+      await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
+      expect(fetchFalso).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('uso solo con teclado', () => {
     it('Enter sobre «Confirmar pedido» confirma y el foco pasa al resultado', async () => {
       fetchFalso.mockReturnValue(responder(201, { pedido: pedidoCreado }));
