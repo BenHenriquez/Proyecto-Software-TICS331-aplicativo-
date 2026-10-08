@@ -210,7 +210,9 @@ describe('menú: enlace «Mi carrito»', () => {
     const { menu } = mostrarApp();
 
     const enlace = menu().getByRole('link', { name: 'Mi carrito, 3 unidades' });
-    expect(enlace.textContent).toBe('Mi carrito (3)');
+    // A la vista, el número va en una insignia junto al texto (arreglo general de UX/UI).
+    expect(enlace.querySelector('.insignia')?.textContent).toBe('3');
+    expect(enlace.textContent).toBe('Mi carrito3');
   });
 
   it('con una sola unidad lo dice en singular', () => {

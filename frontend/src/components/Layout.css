@@ -1,0 +1,292 @@
+/* Cabecera del sitio de vecinas (arreglo general de UX/UI). Usa los tokens de estilos.css.
+   Franja azul: marca y espacio fijo de cuenta. Franja clara: destinos con icono y texto.
+   Adultos mayores: letra >= 18 px, objetivos >= 48 px (56-64 en los destinos), foco siempre visible. */
+
+.icono {
+  display: block;
+  flex: none;
+  width: 1.2em;
+  height: 1.2em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cabecera__interior {
+  max-width: 48rem; /* el mismo ancho que el contenido (main): marca y título alineados */
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* --- Franja azul: marca y cuenta --- */
+.cabecera__franja {
+  background: var(--primario);
+  color: var(--primario-texto);
+}
+
+.cabecera__franja .cabecera__interior {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  min-height: 4.5rem;
+  padding-block: 0.5rem;
+}
+
+.cabecera__marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--primario-texto);
+  font-weight: 700;
+  font-size: 1.1rem;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.cabecera__logo {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 8px;
+  background: var(--primario-texto);
+  color: var(--primario);
+  flex: none;
+}
+
+.cabecera__lugar {
+  font-weight: 400;
+}
+
+.cuenta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cuenta__saludo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cuenta__ingresar,
+.cuenta__salir {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0 1rem;
+  border-radius: 8px;
+  border: 2px solid var(--primario-texto);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* «Ingresar» es el único botón blanco de la franja: no se confunde con los destinos. */
+.cuenta__ingresar {
+  background: var(--primario-texto);
+  color: var(--primario);
+}
+
+.cuenta__salir {
+  background: transparent;
+  color: var(--primario-texto);
+}
+
+/* --- Franja clara: navegación del servicio --- */
+.servicio {
+  background: var(--suave);
+  border-bottom: 2px solid #c9d6e3;
+}
+
+.menu {
+  list-style: none;
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.menu a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 56px;
+  padding: 0 0.9rem;
+  color: var(--primario);
+  font-weight: 700;
+  text-decoration: none;
+  /* Borde arriba y abajo del mismo grosor: el texto queda centrado aunque solo se pinte el de abajo. */
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+}
+
+.menu a[aria-current='page'] {
+  border-bottom-color: var(--primario);
+  color: var(--texto);
+}
+
+/* El carrito va a la derecha, como botón sólido con su insignia. */
+.menu__carrito {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.menu__carrito a {
+  min-height: 48px;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 8px;
+  background: var(--primario);
+  color: var(--primario-texto);
+}
+
+.menu__carrito a[aria-current='page'] {
+  color: var(--primario-texto);
+  box-shadow: inset 0 -4px 0 var(--foco);
+}
+
+.insignia {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--foco);
+  color: var(--texto);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Pie --- */
+.pie {
+  max-width: 48rem;
+  margin: 2rem auto 0;
+  padding: 1rem;
+  border-top: 2px solid var(--suave);
+  font-size: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pie p {
+  margin: 0;
+}
+
+.pie a {
+  font-weight: 700;
+}
+
+/* --- Celular: cabecera compacta (opción B) --- */
+@media (max-width: 39.99rem) {
+  .cabecera__marca {
+    font-size: 0.95rem;
+  }
+
+  .cabecera__lugar {
+    display: none;
+  }
+
+  /* Si la cuenta no cabe junto a la marca, baja a una segunda línea en vez de salirse de la pantalla. */
+  .cabecera__interior {
+    padding: 0 0.75rem;
+  }
+
+  .cabecera__franja .cabecera__interior {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 0;
+  }
+
+  .cuenta__salir {
+    gap: 0.35rem;
+  }
+
+  .cuenta {
+    gap: 0.5rem;
+    margin-left: auto;
+  }
+
+  .cuenta__saludo {
+    white-space: normal;
+    max-width: 6.5rem;
+    font-size: 0.85rem;
+    line-height: 1.15;
+  }
+
+  .cuenta__saludo .icono {
+    display: none;
+  }
+
+  .cuenta__ingresar,
+  .cuenta__salir {
+    padding: 0 0.75rem;
+  }
+
+  /* Tres destinos en una fila: icono arriba, texto abajo. */
+  .menu {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem;
+    padding-block: 0.5rem;
+  }
+
+  .menu a,
+  .menu__carrito a {
+    position: relative;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+    min-height: 64px;
+    padding: 0.35rem 0.25rem;
+    border: 2px solid #c9d6e3;
+    border-radius: 8px;
+    background: var(--fondo);
+    color: var(--primario);
+    font-size: 0.8rem;
+    line-height: 1.15;
+    text-align: center;
+  }
+
+  .menu a[aria-current='page'],
+  .menu__carrito a[aria-current='page'] {
+    border-color: var(--primario);
+    box-shadow: inset 0 -4px 0 var(--primario);
+    color: var(--texto);
+  }
+
+  .menu__carrito {
+    margin-left: 0;
+    display: block;
+  }
+
+  .menu__carrito .insignia {
+    position: absolute;
+    top: 0.2rem;
+    right: 0.3rem;
+  }
+
+  /* En «Buscar medicamento» la cabecera queda fija arriba al bajar por los resultados. */
+  .cabecera--fija {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  /* Reserva su alto para que el elemento con foco nunca quede tapado (WCAG 2.4.11). */
+  html:has(.cabecera--fija) {
+    scroll-padding-top: 10rem;
+  }
+}

@@ -119,24 +119,3 @@
   margin: 0;
   padding-left: 1.25rem;
 }
-
-/* Cabecera: saludo y botón Salir sobre el fondo primario */
-.cabecera__sesion {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  margin-top: 0.75rem;
-}
-
-.cabecera__saludo {
-  margin: 0;
-  font-weight: 700;
-}
-
-.cabecera__salir {
-  min-height: 48px;
-  background: var(--primario-texto);
-  color: var(--primario);
-  border-color: var(--primario-texto);
-}
