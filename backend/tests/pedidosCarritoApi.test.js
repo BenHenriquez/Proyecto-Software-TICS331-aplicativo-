@@ -212,7 +212,6 @@ describe('POST /api/pedidos con carrito', () => {
       ['un texto', 'MED-001'],
       ['un objeto', { codigo: 'MED-001', cantidad: 1 }],
       ['un número', 3],
-      ['null', null],
     ])('responde 400 carrito_invalido si items es %s', async (_caso, items) => {
       const res = await comprar({ items });
       expect(res.status).toBe(400);
@@ -236,6 +235,13 @@ describe('POST /api/pedidos con carrito', () => {
       expect(res.status).toBe(400);
       expect(res.body.motivo).toBe('demasiados_items');
       expect(contar('pedidos')).toBe(0);
+    });
+
+    it('el mismo medicamento repetido muchas veces cuenta como UNO solo, no como demasiados', async () => {
+      const res = await comprar({ items: Array.from({ length: ITEMS_MAXIMOS + 1 }, () => ({ codigo: 'MED-001', cantidad: 1 })) });
+      expect(res.status).toBe(201);
+      expect(res.body.pedido.items).toEqual([expect.objectContaining({ codigo: 'MED-001', cantidad: ITEMS_MAXIMOS + 1 })]);
+      expect(stock('MED-001')).toBe(120 - (ITEMS_MAXIMOS + 1));
     });
 
     it.each([
@@ -280,10 +286,42 @@ describe('POST /api/pedidos con carrito', () => {
       expect(res.status).toBe(404);
       expect(res.body).toEqual({
         motivo: 'no_existe',
-        mensaje: 'Uno de los medicamentos de tu carrito ya no está en el catálogo. Revisa tu carrito, por favor.',
+        mensaje: 'Hay medicamentos de tu carrito que ya no están en el catálogo. Quítalos para continuar.',
+        noDisponibles: [{ codigo: 'MED-999' }],
       });
       expect(stock('MED-001')).toBe(120);
       expect(contar('pedidos')).toBe(0);
+    });
+
+    it('un medicamento desactivado también se informa por código, para que la pantalla diga cuál quitar', async () => {
+      db.prepare("UPDATE medicamentos SET activo = 0 WHERE codigo = 'MED-003'").run();
+      const res = await comprar({
+        items: [
+          { codigo: 'MED-001', cantidad: 1 },
+          { codigo: 'MED-003', cantidad: 1 },
+        ],
+      });
+      expect(res.status).toBe(404);
+      expect(res.body.noDisponibles).toEqual([{ codigo: 'MED-003' }]);
+      expect(stock('MED-001')).toBe(120);
+      expect(stock('MED-003')).toBe(80);
+    });
+
+    it('si hay varios que ya no existen, los informa a todos', async () => {
+      const res = await comprar({
+        items: [
+          { codigo: 'MED-998', cantidad: 1 },
+          { codigo: 'MED-001', cantidad: 1 },
+          { codigo: 'MED-999', cantidad: 1 },
+        ],
+      });
+      expect(res.status).toBe(404);
+      expect(res.body.noDisponibles).toEqual([{ codigo: 'MED-998' }, { codigo: 'MED-999' }]);
+    });
+
+    it('la compra simple sin stock o inexistente no trae listas extra', async () => {
+      const inexistente = await comprar({ codigo: 'MED-999', cantidad: 1 });
+      expect(inexistente.body).toEqual({ motivo: 'no_existe', mensaje: 'No encontramos ese medicamento. Vuelve a buscarlo, por favor.' });
     });
 
     it('responde 404 no_existe si un ítem no trae código', async () => {
@@ -315,6 +353,12 @@ describe('POST /api/pedidos con carrito', () => {
       expect(res.body.pedido.items).toEqual([
         { codigo: 'MED-003', medicamento: 'Amlodipino 5 mg', cantidad: 2, precioUnitario: 1490, subtotal: 2980 },
       ]);
+    });
+
+    it.each([['null', null], ['ausente', undefined]])('con `items` %s sigue siendo la compra simple de US-15', async (_caso, items) => {
+      const res = await comprar({ codigo: 'MED-003', cantidad: 1, items });
+      expect(res.status).toBe(201);
+      expect(res.body.pedido).toMatchObject({ medicamento: 'Amlodipino 5 mg', cantidad: 1, total: 1490 });
     });
 
     it('la compra simple sin stock mantiene su mensaje y no trae la lista de faltantes', async () => {

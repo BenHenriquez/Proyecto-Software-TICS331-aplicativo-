@@ -17,6 +17,15 @@ export function crearEsquema(db) {
   db.exec(fs.readFileSync(rutaEsquema, 'utf8'));
 }
 
+// Tablas que el código necesita. Si la base viene de una versión anterior (por ejemplo, de antes de US-16,
+// sin `pedido_items`), cada compra fallaría con un error interno mientras /api/health dice que todo está bien.
+const TABLAS_REQUERIDAS = ['medicamentos', 'pedidos', 'pedido_items'];
+
+export function tablasFaltantes(db) {
+  const existentes = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").pluck().all());
+  return TABLAS_REQUERIDAS.filter((tabla) => !existentes.has(tabla));
+}
+
 export function borrarDb(rutaDb) {
   if (rutaDb === ':memory:') return;
   for (const sufijo of ['', '-journal', '-wal', '-shm']) {

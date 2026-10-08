@@ -27,6 +27,7 @@ export function crearRutasPedidos() {
 
     const cuerpo = { motivo: r.motivo, mensaje: r.mensaje };
     if (r.faltantes) cuerpo.faltantes = r.faltantes;
+    if (r.noDisponibles) cuerpo.noDisponibles = r.noDisponibles;
     res.status(ESTADO_HTTP[r.motivo]).json(cuerpo);
   });
 

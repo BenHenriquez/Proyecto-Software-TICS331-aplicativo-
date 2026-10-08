@@ -16,7 +16,7 @@ const MENSAJES = {
   carrito_vacio: 'Tu carrito está vacío. Agrega al menos un medicamento para hacer tu pedido.',
   carrito_invalido: 'No pudimos leer tu carrito. Revisa tus medicamentos e inténtalo de nuevo.',
   demasiados_items: `Tu carrito puede tener hasta ${ITEMS_MAXIMOS} medicamentos distintos. Quita alguno para continuar.`,
-  no_existe_en_carrito: 'Uno de los medicamentos de tu carrito ya no está en el catálogo. Revisa tu carrito, por favor.',
+  no_existe_en_carrito: 'Hay medicamentos de tu carrito que ya no están en el catálogo. Quítalos para continuar.',
 };
 
 const rechazo = (motivo, mensaje = MENSAJES[motivo]) => ({ ok: false, motivo, mensaje });
@@ -98,17 +98,19 @@ function prepararItems(items) {
 export function crearPedidosService(pedidosRepository) {
   return {
     confirmarPedido({ codigo, cantidad, items, alias } = {}) {
-      const esCarrito = items !== undefined;
+      // Sin `items` (o con `items: null`) es la compra simple de US-15, igual que antes.
+      const esCarrito = items != null;
       if (esCarrito) {
         if (!Array.isArray(items)) return rechazo('carrito_invalido');
         if (items.length === 0) return rechazo('carrito_vacio');
-        if (items.length > ITEMS_MAXIMOS) return rechazo('demasiados_items');
       }
 
       const preparado = prepararItems(esCarrito ? items : [{ codigo, cantidad }]);
       if (!preparado.ok) {
         return esCarrito && preparado.motivo === 'no_existe' ? rechazo('no_existe', MENSAJES.no_existe_en_carrito) : preparado;
       }
+
+      if (preparado.items.length > ITEMS_MAXIMOS) return rechazo('demasiados_items');
 
       const r = pedidosRepository.confirmarPedido({ items: preparado.items, alias: normalizarAlias(alias) });
       if (r.ok) return { ok: true, pedido: aVista(r.pedido) };
@@ -124,7 +126,8 @@ export function crearPedidosService(pedidosRepository) {
           })),
         };
       }
-      return esCarrito ? rechazo('no_existe', MENSAJES.no_existe_en_carrito) : rechazo(r.motivo);
+      if (!esCarrito) return rechazo(r.motivo);
+      return { ...rechazo('no_existe', MENSAJES.no_existe_en_carrito), noDisponibles: r.codigos.map((codigo) => ({ codigo })) };
     },
   };
 }
