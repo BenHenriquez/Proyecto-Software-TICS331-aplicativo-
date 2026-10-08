@@ -1,0 +1,137 @@
+/* Ingreso con Neuro-Access (US-17, #47) y Mis pedidos (#48). Usa los tokens de estilos.css.
+   Adultos mayores: letra >= 20 px, botones >= 64 px, alto contraste y foco siempre visible. */
+.ingresar {
+  display: grid;
+  gap: 1rem;
+  max-width: 36rem;
+}
+
+/* La sección recibe el foco solo para guiar al lector de pantalla: no se dibuja el marco de foco. */
+.ingresar:focus,
+.ingresar:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.ingresar h1 {
+  margin: 0;
+}
+
+.ingresar__estado {
+  min-height: 1.5em;
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.ingresar__pasos {
+  margin: 0;
+  padding-left: 1.5rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ingresar__qr {
+  justify-self: start;
+  padding: 1rem;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.ingresar__qr img {
+  display: block;
+  width: 280px;
+  height: 280px;
+}
+
+.ingresar__nota {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.ingresar__boton,
+.ingresar__enlace-boton {
+  min-height: 64px;
+  margin-top: 0.75rem;
+}
+
+.ingresar__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.ingresar__enlace-boton {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  background: var(--primario);
+  color: var(--primario-texto);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/* Mis pedidos */
+.mis-pedidos__lista {
+  list-style: none;
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+}
+
+.mis-pedidos__pedido {
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+}
+
+.mis-pedidos__pedido h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.3rem;
+}
+
+.mis-pedidos__pedido dl {
+  margin: 0;
+}
+
+.mis-pedidos__pedido dl div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+}
+
+.mis-pedidos__pedido dt {
+  font-weight: 700;
+}
+
+.mis-pedidos__pedido dt::after {
+  content: ':';
+}
+
+.mis-pedidos__pedido dd {
+  margin: 0;
+}
+
+/* Cabecera: saludo y botón Salir sobre el fondo primario */
+.cabecera__sesion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.cabecera__saludo {
+  margin: 0;
+  font-weight: 700;
+}
+
+.cabecera__salir {
+  min-height: 48px;
+  background: var(--primario-texto);
+  color: var(--primario);
+  border-color: var(--primario-texto);
+}
