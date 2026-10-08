@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useCarritoOpcional } from '../lib/carrito';
 
 export default function Layout() {
   const principal = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
   const rutaAnterior = useRef(pathname);
+  const unidadesEnCarrito = useCarritoOpcional()?.unidades ?? 0;
 
   // Al cambiar de pantalla, el foco va al contenido para que el teclado y los lectores sigan el cambio.
   // En la primera carga no se mueve, para que el primer Tab llegue a "Saltar al contenido".
@@ -26,6 +28,18 @@ export default function Layout() {
             <li>
               <NavLink to="/" end>
                 Buscar medicamento
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/carrito"
+                aria-label={
+                  unidadesEnCarrito > 0
+                    ? `Mi carrito, ${unidadesEnCarrito} ${unidadesEnCarrito === 1 ? 'unidad' : 'unidades'}`
+                    : undefined
+                }
+              >
+                {unidadesEnCarrito > 0 ? `Mi carrito (${unidadesEnCarrito})` : 'Mi carrito'}
               </NavLink>
             </li>
             <li>

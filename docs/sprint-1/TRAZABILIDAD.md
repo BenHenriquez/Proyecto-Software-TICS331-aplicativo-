@@ -52,6 +52,17 @@ Leyenda de estado: ✅ comprobado · ⏳ pendiente · ➡️ lo cubre otra tarea
 | #12 el candado: 409 `version_cambiada` y mensaje de §5; no guarda nada (tampoco el precio); aplica también al cambio de solo precio; dos ediciones con la misma versión → la segunda 409; versión futura → 409 | `backend/tests/backofficeApi.test.js` → bloque «candado de version frente a ventas simultáneas (#12)» | automático | #12 | ✅ |
 | #12 `version` obligatoria: ausente, negativa, decimal, texto, nula o fuera de rango → 400 con `errores.version`; la validación va antes que el candado y que el 404; inexistente → 404 (no 409) | mismo bloque + «medicamento inexistente» | automático | #12 | ✅ |
 | Fuera de alcance del Sprint 1 (Praxsuite, WhatsApp, IA…) | revisión del diff | revisión | todas | ⏳ al abrir el PR |
+| US-16 feliz: dos medicamentos con stock → un solo pedido con los dos, total calculado, «Solicitud creada» y stock descontado en cada uno (Gherkin del issue #42) | `backend/tests/us16-carrito.funcional.test.js` → «Escenario feliz…» + contrato en `backend/tests/pedidosCarritoApi.test.js` («compra aceptada») | automático | #42 | ✅ |
+| US-16 error sin stock: no se crea el pedido, se indica cuál medicamento falta y el stock de todos queda igual | mismo archivo → «Escenario de error — sin stock…» (versiones sin cambio) + `pedidosCarritoApi.test.js` («sin stock: todo o nada», uno o varios faltantes) + `pedidosRepository.test.js` («si un ítem no alcanza… stock de TODOS sin cambios») | automático | #42 | ✅ |
+| US-16 concurrencia: un carrito rechazado revierte TODOS sus descuentos aunque otro pedido compita; nunca stock negativo; lo descontado = lo que quedó en `pedido_items` | `backend/tests/us16-concurrencia.test.js` (20 carritos HTTP en paralelo por la última unidad; órdenes contrarios; mezcla de compras simples y carritos; procesos con conexiones SQLite propias) | automático (procesos reales) | #42 | ✅ |
+| US-16 todo o nada si un INSERT falla | `pedidosRepository.test.js` → «si falla el INSERT de un ítem, se revierten los descuentos y el pedido» | automático | #42 | ✅ |
+| US-16 la compra de un solo medicamento (US-15) no cambia: mismos mensajes y campos | `pedidosApi.test.js`, `us15-compra.funcional.test.js`, `us15-concurrencia.test.js` (sin cambios de comportamiento) + `pedidosCarritoApi.test.js` («compatibilidad…») | regresión | #42 | ✅ |
+| Regla 1 en el carrito: precio, subtotal y total los calcula el backend | `pedidosCarritoApi.test.js` → «ignora precios, subtotales y totales enviados por el cliente»; `Carrito.test.tsx` → el cuerpo del POST es solo `{ items: [{ codigo, cantidad }] }` | automático | #42 | ✅ |
+| US-16 pantalla: revisar, cambiar cantidades, quitar, confirmar un solo pedido; estados vacío, confirmando, éxito, sin stock, error de conexión y respuesta incierta | `frontend/src/pages/Carrito.test.tsx` + `Buscador.carrito.test.tsx` (ciclo completo buscar → agregar dos → carrito → un pedido) + `frontend/src/lib/carrito.test.tsx` (tope 20 y 10 medicamentos, se conserva al recargar, datos alterados) | automático | #42 | ✅ |
+| US-16 un clic tardío (doble clic, Enter repetido) cuando ya llegó la respuesta no crea un segundo pedido | `Carrito.test.tsx` → «un clic tardío justo después de llegar la respuesta…» + arnés en navegador real (sección 2f) | automático + navegador | #42 | ✅ |
+| US-16 un medicamento que ya no existe o está desactivado se nombra en la fila; un 201 ilegible vacía el carrito y dice qué se pidió; el cambio de precio se avisa; las pestañas se sincronizan | `Carrito.test.tsx`, `carrito.test.tsx` y `pedidosCarritoApi.test.js` («noDisponibles», «cambió el precio», «otra pestaña») | automático | #42 | ✅ |
+| Una base creada antes de US-16 hace que el servidor avise y no arranque (en vez de errores 500 en cada compra) | `backend/tests/esquema.test.js` + arranque real con una base vieja (sección 2f) | automático + en vivo | #42 | ✅ |
+| US-16 front: solo teclado, letra ≥ 18 px, botones ≥ 56 px, zoom 200 % | `Carrito.test.tsx` → «uso solo con teclado» + navegador real (sección 2f) | automático + navegador | #42 | ✅ |
 
 ## 2. Ejecución en vivo del Gherkin de US-13 (2026-09-30)
 
@@ -178,6 +189,80 @@ Rama `feat/US-13-panel` (sobre `dev` con #12), `npm run seed` + `npm run dev` y 
 | Almacenamiento del navegador | `localStorage` y `sessionStorage` vacíos, sin cookies |
 | Consola | solo los 4xx provocados a propósito (401, 400, 409) y el `favicon.ico` (404, ya existía) |
 
+## 2f. Carrito en vivo y en navegador real (US-16 #42, 2026-10-08)
+
+`npm run seed` sobre una base temporal + `npm run dev`; Chrome real manejado con `playwright-core` (solo teclado donde se indica). Datos sintéticos.
+
+**API (a través del proxy de Vite, `:5173`)**
+
+| Llamada | Resultado |
+|---|---|
+| Carrito con MED-001 × 2 y MED-003 × 1 | 201, **un** pedido con los dos ítems, total 5470 = 2 × 1.990 + 1 × 1.490, «Solicitud creada» |
+| Stock después | MED-001 118 y MED-003 79 (se descontó cada uno) |
+| Carrito con MED-001, PRB-002 × 5 y MED-003 | 409 `sin_stock`; el mensaje nombra «PRUEBA Concurrencia dos unidades» y dice cuántas quedan; **sin pedido y stock igual** (MED-001 118, PRB-002 2) |
+| `{ items: [] }` | 400 `carrito_vacio` |
+| Compra simple `{ codigo, cantidad }` | 201 como en US-15 (con `items` además de los campos de siempre) |
+| 10 carritos a la vez con MED-001 + PRB-001 (1 unidad) | 1 × 201 y 9 × 409; **PRB-001 = 0** y MED-001 bajó solo 1 (117): los 9 rechazados revirtieron su descuento |
+
+**Pantalla (Chrome, viewport de 900 px)**
+
+| Comprobación | Resultado |
+|---|---|
+| Elegir cantidad con teclado y «Agregar al carrito» | aviso «Agregaste Losartán 50 mg a tu carrito. Ahora tienes 2 unidades.»; el menú pasa a «Mi carrito (2)» |
+| Segunda búsqueda, otro medicamento, y «Ver mi carrito (3 unidades)» | el carrito lista los dos con subtotales; «Total estimado: $5.470» |
+| Recargar la página | el carrito se conserva |
+| Flechas ↑ ↓ en el campo de cantidad | suben y bajan la cantidad |
+| Tamaños | letra base 20 px (nombres 30 px); «Confirmar pedido» 64 px de alto; botones «−» y «+» de 64 × 64 px |
+| Zoom 200 % (ventana de 450 px) | sin scroll horizontal |
+| «Confirmar pedido» con Enter | «Tu pedido fue creado», número de pedido, cada medicamento con su subtotal, total del backend y «Solicitud creada»; el carrito queda vacío |
+| Carrito con un medicamento que no alcanza | el medicamento se marca con borde y texto («No alcanza: solo quedan 2 unidades…»), el mensaje dice que no se creó ningún pedido y el carrito queda igual |
+| Consola | sin errores propios; solo el 409 esperado del rechazo y un 404 de `/favicon.ico` (el sitio no tiene ícono, ya ocurría antes) |
+
+Pendiente para una persona del equipo: probarlo con lector de pantalla (US-07, fuera del Sprint 1) y con una persona usuaria real.
+
+### Prueba en vivo dura (2026-10-08, código final)
+
+Chrome real contra la app real, base temporal limpia, token de backoffice local de prueba. Cada escenario revisa el estado real del servidor (stock y precios) además de la pantalla.
+
+| Escenario | Resultado |
+|---|---|
+| S1 ciclo completo solo con teclado (buscar → agregar dos → carrito → confirmar) | ✅ foco, menú, total, stock y pedido correctos |
+| S2 dos navegadores confirman a la vez la última unidad | ✅ solo uno gana; el otro ve el medicamento que falta, su fila marcada y el Losartán no se le descontó; stock final 0 |
+| S3 el precio cambia en el backoffice entre agregar y confirmar | ✅ el pedido usa el precio real y se avisa «ahora $1.700 (antes $1.490)» |
+| S4 el stock se agota en el backoffice después de agregar | ✅ se nombra el medicamento, nada se descuenta y el carrito queda igual |
+| S5 se corta internet al confirmar y vuelve | ✅ mensaje simple; al reintentar se compra una sola vez |
+| S6 doble clic y Enter repetido | ✅ un solo pedido (y ver la fila de la carrera más abajo) |
+| S7 datos del navegador corruptos o con HTML | ✅ carga vacía, no ejecuta nada |
+| S8 compra de un solo medicamento (US-15) y carrito sin tocar | ✅ |
+| S9 medicamento sin stock | ✅ sin ningún botón |
+| S10 celular de 375 px | ✅ sin scroll horizontal, botones ≥ 56 px, letra ≥ 20 px |
+| S11 límites del carrito (20 unidades) | ✅ |
+| S12 un medicamento ya no existe en el catálogo | ✅ su fila dice «Ya no está disponible… Quítalo»; quitándolo se compra el resto |
+| S13 la respuesta llega ilegible | ✅ avisa que pudo crearse, muestra lo que se pedía, vacía el carrito y no deja confirmar otra vez |
+| S14 dos pestañas | ✅ al confirmar en una, la otra pasa a «carrito vacío» sin recargar |
+| Arnés de la carrera del clic tardío (12 intentos en distintos puntos de la ventana) | ❌ **antes** de la corrección: 12 de 12 duplicaban el pedido · ✅ **después**: 12 de 12 con un solo pedido |
+| Arranque del servidor con una base de antes de US-16 | ✅ «faltan las tablas: pedido_items… Ejecuta npm run seed», código de salida 1 |
+| Errores de JavaScript en la página / errores internos (500) del servidor | ✅ ninguno / ninguno |
+
+**Hallazgo fuera de US-16 (para el equipo):** `ConfirmarPedido.tsx` (la confirmación de un solo medicamento, #18) libera su guarda `enviando` en el `finally` justo antes de que React quite el botón, y con el mismo arnés **duplicó el pedido en 4 de 4 intentos**. Es un instante muy corto, pero un doble clic lento podría caer ahí. Corrección propuesta (3 líneas, como en el carrito): no hacer `enviando.current = false` tras un éxito ni tras una respuesta ilegible; solo en rechazos y errores recuperables. No se tocó por ser de otra historia.
+
+### Mutaciones de US-16 (sin commitear)
+
+| Mutación | Tests en rojo |
+|---|---|
+| M1 un ítem sin stock **no** revierte los descuentos ya hechos (devuelve en vez de lanzar) | 13 |
+| M2 leer el stock y restarlo en JavaScript, por ítem, con una pausa entre leer y escribir (lo que prohíbe `CLAUDE.md`) | varios, incluidos los de procesos en paralelo |
+| M3 quitar `AND stock >= @cantidad` del `UPDATE` | 31 (advisor) |
+| M4 quitar `.immediate` de la transacción | 7 (advisor) |
+| M5 el total solo suma el primer ítem | 10 (advisor) |
+| M6 la respuesta incierta no vacía el carrito | 1 |
+| M7 sin escucha del evento `storage` entre pestañas | 2 |
+| M8 `agregar` usa la lista vieja del render | 9 |
+| M9 no avisar el cambio de precio / no marcar el medicamento que ya no existe | 1 y 1 |
+| M10 `items: null` vuelve a ser carrito inválido · el tope de 10 cuenta repetidos | 1 y 1 |
+| M11 el 404 del carrito no dice cuáles · no se detecta la base vieja | 3 y 2 |
+| M12 liberar la guarda `enviando` también tras un éxito | 1 (`un clic tardío…`) |
+
 ## 3. Los tests pueden fallar (mutaciones, sin commitear)
 
 Se rompió el código a propósito y se comprobó que al menos un test se pone rojo. Después se restauró el código original.
@@ -294,6 +379,9 @@ Mutaciones del panel de mantención (#13). Cuentan los 42 tests de `Backoffice.t
 | A1 — tests de #18 antes de implementar | ¿Escenarios sin test? ¿Tests que no pueden fallar o que fuerzan la estructura? ¿Riesgos funcionales sin cubrir? | Faltaban tres cosas graves: la cabecera `Content-Type: application/json` (sin ella el backend leería el cuerpo vacío y nadie podría comprar), un 201 con forma inesperada (no debe ofrecer reintentar: el pedido ya descontó stock y se crearía otro) y que el buscador no se mueva mientras se confirma (el resultado se perdería). También se decidió que tras un rechazo por stock solo se ofrezca volver a los resultados refrescados (con «Cambiar cantidad» la vecina reabriría el selector con el stock viejo), se protegió «Intentar de nuevo» contra el doble clic, se exigió que el selector desaparezca al abrir el resumen y que cada valor se compruebe dentro de su fila (el total estimado y el del backend valen lo mismo en varios tests) |
 | A2 — implementación de #18 | ¿Carreras, pedidos dobles, estados inconsistentes, reglas del CLAUDE.md, choques con el PR #29? | Sin hallazgos que bloquearan. Se corrigió: «Volver a los resultados» repetía la búsqueda con lo que hubiera en el campo (ahora usa la última búsqueda hecha), el aviso de foco podía quedar pendiente si el refresco no traía resultados, el éxito no se anunciaba a lectores de pantalla (ahora hay una región de estado con el número de pedido), «Buscar» se veía activo mientras estaba bloqueado y quedaba una rama sin uso. Queda documentada la limitación del reintento tras un corte de red (sección 2e). Se comprobó con `git merge-tree` que esta rama integra sin conflictos de código con el PR #29 |
 
+| A2 — implementación de US-16 (#42) | ¿Atomicidad y todo o nada? ¿Compatibilidad con US-15? ¿Entradas raras, carreras con el backoffice, estados atascados, accesibilidad, tests que no pueden fallar? | Sin hallazgos altos (mutaciones del advisor: sin rollback 13 tests en rojo; sin `AND stock >= ?` 31; total con solo el primer ítem 10; sin `.immediate` 7). **Se corrigió:** (1) un medicamento desactivado o inexistente no se nombraba (ahora `noDisponibles` y la fila se marca); (2) una base de antes de US-16 daba 500 en cada compra con `/api/health` en verde (ahora el servidor avisa y no arranca); (3) el precio podía cambiar entre agregar y confirmar sin avisar (ahora se avisa el antes y el ahora); (4) con un 201 ilegible el carrito seguía y se podía confirmar otra vez (ahora se vacía y se muestra lo que se pedía); (5) el foco se perdía al ajustar tras un rechazo y al abrir la pantalla en desarrollo; (6) `items: null` cambiaba la compra simple de US-15; (7) las pestañas no se sincronizaban; (8) `agregar` usaba una lista vieja si se llamaba dos veces seguidas; (10) el tope de 10 contaba repetidos y había un «20» escrito a mano. **No se corrigió:** (9) el carrito no limita la cantidad por el stock (solo fricción: el rechazo explica qué pasó). Cada corrección tiene su test y su mutación (M1–M9, sección 2f) |
+| Prueba en vivo dura de US-16 | ¿Pedidos duplicados, stock perdido, errores en consola? | **Hallazgo propio:** entre que llega la respuesta y React quita el botón había un instante en que un clic tardío creaba un segundo pedido (reproducido en 12 de 12 intentos con un arnés que fuerza ese instante; corregido sin liberar la guarda tras el éxito) |
+
 ### Revisión con contexto limpio (G5)
 
 Un subagente con Opus, que solo vio el diff y los criterios (no la conversación), revisó `dev` contra `main`. Cada hallazgo se verificó antes de actuar:
@@ -321,3 +409,4 @@ Con `AND version = ?` en el `UPDATE`, `changes === 0` significa «no existe» o 
 - **#14 ya se puede cerrar tras #12.** Hecho: cambio visible en la búsqueda, valores inválidos que dejan el anterior intacto, cambios mientras ocurren ventas y, con #12, la actualización con **datos viejos** (409; el `it.skip` se activó). Pasa a Done cuando el PR de #12 se mergee.
 - **#13 (panel de mantención) listo para revisión:** el Gherkin de US-13 ya se ejecuta en el panel (sección 2d). Pasa a Done cuando su PR a `dev` se mergee.
 - **Riesgo del Sprint:** resuelto. Con #12, #13 y #18 en `dev` ya no queda ninguna tarea abierta del Sprint 1 y la demostración recorre el ciclo completo: buscar → ver precio y stock → elegir cantidad → confirmar → pedido con total y estado «Solicitud creada», más el panel de mantención.
+- **#42 (US-16 Carrito) listo para revisión:** los dos escenarios del issue se ejecutan en vivo, en la API y en la pantalla (sección 2f). **Cambia el esquema:** `pedidos` pasa a ser la cabecera (total, estado, fecha) y los medicamentos van en `pedido_items`; quien tenga una base vieja debe correr `npm run seed`. Si US-17 (#45, modelo de vecino y sesión) agrega una columna a `pedidos`, sigue siendo compatible, pero conviene revisarlo junto. Pendiente para el equipo: actualizar `docs/uml/` con `pedido_items`, `crearPedidosService.confirmarPedido({ items })` y `CarritoProvider`/`Carrito`, y decidir sprint y puntos de US-16 (el issue los deja «por definir»).

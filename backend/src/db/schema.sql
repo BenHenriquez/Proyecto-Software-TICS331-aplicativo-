@@ -14,15 +14,22 @@ CREATE TABLE medicamentos (
 
 CREATE TABLE pedidos (
   numero_pedido      TEXT PRIMARY KEY,             -- "P-" + 6 caracteres alfanuméricos
-  codigo_medicamento TEXT NOT NULL REFERENCES medicamentos(codigo),
-  nombre_medicamento TEXT NOT NULL,                -- copia al momento de la compra
-  cantidad           INTEGER NOT NULL CHECK (cantidad BETWEEN 1 AND 20),
-  precio_unitario    INTEGER NOT NULL,             -- copia del precio al confirmar
-  total              INTEGER NOT NULL,             -- cantidad × precio, calculado en servidor
+  total              INTEGER NOT NULL,             -- suma de los subtotales de sus ítems, calculado en servidor
   estado             TEXT NOT NULL DEFAULT 'Solicitud creada' CHECK (estado IN (
     'Solicitud creada', 'En cotización', 'Validación de pago', 'En preparación',
     'Pedido en ruta', 'Entregado', 'No entregado', 'Listo para retirar',
     'Retirado en farmacia')),
   fecha_creacion     TEXT NOT NULL,                -- ISO 8601
   alias_vecino       TEXT                          -- solo alias ficticio, opcional
+);
+
+-- US-16: un pedido tiene uno o más ítems (un medicamento por ítem).
+CREATE TABLE pedido_items (
+  numero_pedido      TEXT NOT NULL REFERENCES pedidos(numero_pedido),
+  codigo_medicamento TEXT NOT NULL REFERENCES medicamentos(codigo),
+  nombre_medicamento TEXT NOT NULL,                -- copia al momento de la compra
+  cantidad           INTEGER NOT NULL CHECK (cantidad BETWEEN 1 AND 20),
+  precio_unitario    INTEGER NOT NULL,             -- copia del precio al confirmar
+  subtotal           INTEGER NOT NULL,             -- cantidad × precio, calculado en servidor
+  PRIMARY KEY (numero_pedido, codigo_medicamento)
 );

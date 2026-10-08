@@ -9,7 +9,7 @@ describe('US-15 · Realizar compra/pedido', () => {
   let db;
   let app;
   const stock = (codigo) => db.prepare('SELECT stock FROM medicamentos WHERE codigo = ?').get(codigo).stock;
-  const pedidosDe = (codigo) => db.prepare('SELECT * FROM pedidos WHERE codigo_medicamento = ?').all(codigo);
+  const pedidosDe = (codigo) => db.prepare('SELECT * FROM pedido_items WHERE codigo_medicamento = ?').all(codigo);
 
   beforeEach(() => {
     ({ db } = sembrar({ rutaDb: ':memory:', rutaCsv: config.rutaSemilla }));
