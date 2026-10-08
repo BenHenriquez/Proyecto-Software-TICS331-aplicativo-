@@ -1,0 +1,170 @@
+@startuml componentes-us17
+' Diagrama de componentes de US-17 Ingreso con Neuro-Access (#43) · FARMAC-IA (TICS331 · Equipo BBMVV)
+' Sub-issues: #45 modelo · #46 backend · #47 pantalla de ingreso · #48 sesión en la compra y Mis pedidos
+' Muestra lo que US-17 agrega o cambia sobre el Sprint 1 (ver componentes-sprint1.puml).
+' Los nombres son los del código: frontend/src/** y backend/src/** (cada componente indica su archivo).
+' Si cambian nombres de clases, funciones o endpoints, actualizar este archivo.
+!pragma layout smetana
+
+title FARMAC-IA · Diagrama de componentes (US-17 Ingreso con Neuro-Access)
+
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam defaultFontSize 13
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam component {
+  BorderColor #555555
+}
+skinparam database {
+  BorderColor #555555
+  BackgroundColor #FFFFFF
+}
+
+' Colores: nuevo en US-17 morado · modificado por US-17 amarillo · externo rosado · sin cambios gris
+!$nuevo = "#E1D5E7"
+!$cambia = "#FFF2CC"
+!$externo = "#F8CECC"
+!$igual = "#EEEEEE"
+
+' =====================================================================
+' NAVEGADOR — frontend (React + Vite + TypeScript)
+' =====================================================================
+package "Navegador · frontend (React + Vite)" as Frontend {
+
+  component "App\n(App.tsx · rutas /, /ingresar,\n/mis-pedidos y /backoffice)" as App $cambia
+  component "SesionProvider · useSesion\n(lib/sesion.tsx)\nvecino · recargar() · salir()" as Sesion $nuevo
+  component "Layout\n(components/Layout.tsx)\n«Ingresar» o «Hola, X · Salir»" as Layout $cambia
+
+  package "Páginas" {
+    component "Ingresar\n(pages/Ingresar.tsx)\nQR, pasos y estados · #47" as Ingresar $nuevo
+    component "MisPedidos\n(pages/MisPedidos.tsx)\nlista de pedidos · #48" as MisPedidos $nuevo
+    component "Buscador\n(pages/Buscador.tsx)" as Buscador $igual
+  }
+
+  component "ConfirmarPedido\n(components/ConfirmarPedido.tsx)\n«Quedó a tu nombre» · #48" as ConfirmarPedido $cambia
+
+  component "api\n(lib/api.ts)\npedirCodigoIngreso · consultarIngreso\nsimularEscaneo · obtenerSesion\ncerrarSesion · listarMisPedidos\nconfirmarPedido" as api $cambia
+}
+
+' =====================================================================
+' SERVIDOR — backend (Node 20 + Express): routes → services → repositories
+' =====================================================================
+package "Servidor · backend (Node 20 + Express)" as Backend {
+
+  component "server.js\nelige el proveedor según\nIDENTIDAD_PROVEEDOR" as server $cambia
+  component "config\n(config.js · identidad:\nproveedor, neuronDominio, urlPublicaApi)" as config $cambia
+  component "crearApp\n(app.js · crearApp({ db, tokenBackoffice,\nproveedorIdentidad, ahora }))" as crearApp $cambia
+
+  package "routes" {
+    component "crearRutasSesion\n(routes/sesion.js)\ndeja req.vecino en cada petición · #46" as crearRutasSesion $nuevo
+    component "crearRutasPedidos\n(routes/pedidos.js)\nPOST /pedidos · GET /mis-pedidos" as crearRutasPedidos $cambia
+  }
+
+  component "leerCookie\n(middleware/cookies.js)" as leerCookie $nuevo
+
+  package "services" {
+    component "crearSesionService\n(services/sesionService.js)\niniciarIngreso · recibirAprobacion\nsimularAprobacion · consultarIngreso\nvecinoDeSesion · cerrarSesion" as sesionService $nuevo
+    component "crearPedidosService\n(services/pedidosService.js)\nconfirmarPedido({ …, vecinoId })\nmisPedidos(vecinoId)" as pedidosService $cambia
+  }
+
+  package "proveedores (identidad)" {
+    component "crearProveedorNeuron\n(proveedores/identidadNeuron.js)\niniciar(): registra callback y pide QR" as proveedorNeuron $nuevo
+    component "crearProveedorSimulado\n(proveedores/identidadSimulada.js)\nIDENTIDAD_SIMULADA «Rosa»" as proveedorSimulado $nuevo
+  }
+
+  package "repositories (única capa que toca SQLite)" {
+    component "crearSesionesRepository\n(repositories/sesionesRepository.js)\ncrearIntento · aprobarIntento · rechazarIntento\ncanjearIntento · buscarVecinoPorSesion · cerrarSesion · #45" as sesionesRepository $nuevo
+    component "crearPedidosRepository\n(repositories/pedidosRepository.js)\nconfirmarPedido (+ vecino_id)\nlistarPorVecino" as pedidosRepository $cambia
+  }
+}
+
+' =====================================================================
+' DATOS
+' =====================================================================
+database "SQLite · farmacia.db\n(db/schema.sql)" as SQLite {
+  component "vecinos\n(identidad_id, nombre)\nsin RUT" as tablaVecinos <<tabla>> $nuevo
+  component "intentos_ingreso\n(llave_hash, secreto_hash,\nestado, vence_en)" as tablaIntentos <<tabla>> $nuevo
+  component "sesiones\n(token_hash, vecino_id,\nvence_en)" as tablaSesiones <<tabla>> $nuevo
+  component "pedidos\n(+ vecino_id)" as tablaPedidos <<tabla>> $cambia
+  component "medicamentos" as tablaMedicamentos <<tabla>> $igual
+}
+
+' =====================================================================
+' EXTERNOS — Trust Anchor Group (TAG)
+' =====================================================================
+cloud "Internet" {
+  component "TAG Neuron® lab.tagroot.io\n/QuickLogin · Neuro-Ledger" as Neuron $externo
+  component "Túnel cloudflared\n(URL_PUBLICA_API, solo desarrollo)" as Tunel $externo
+}
+component "App Neuro-Access\n(teléfono del vecino)" as AppNeuro $externo
+
+' =====================================================================
+' RELACIONES — Frontend
+' =====================================================================
+App --> Sesion : envuelve las rutas
+App --> Layout
+App --> Ingresar
+App --> MisPedidos
+App --> Buscador
+Buscador --> ConfirmarPedido
+
+Layout --> Sesion : vecino · salir()
+Ingresar --> Sesion : recargar()
+ConfirmarPedido --> Sesion : vecino
+MisPedidos --> Sesion : vecino
+
+Ingresar --> api : pedirCodigoIngreso\nconsultarIngreso (cada 2 s)\nsimularEscaneo
+MisPedidos --> api : listarMisPedidos
+ConfirmarPedido --> api : confirmarPedido
+Sesion --> api : obtenerSesion\ncerrarSesion
+
+api --> crearRutasSesion : HTTP POST/GET /api/sesion/qr\nPOST /api/sesion/qr/simular\nGET /api/sesion · POST /api/sesion/cerrar
+api --> crearRutasPedidos : HTTP POST /api/pedidos\nGET /api/mis-pedidos
+
+' =====================================================================
+' RELACIONES — Backend
+' =====================================================================
+server --> config
+server --> proveedorNeuron : si IDENTIDAD_PROVEEDOR=neuron
+server --> proveedorSimulado : en otro caso
+server --> crearApp
+crearApp --> crearRutasSesion : primero (req.vecino)
+crearApp --> crearRutasPedidos
+
+crearRutasSesion --> leerCookie : farmacia_sesion\nfarmacia_ingreso
+crearRutasSesion --> sesionService
+crearRutasPedidos --> pedidosService : vecinoId = req.vecino?.id
+
+sesionService --> proveedorNeuron : iniciar({ secreto, proposito })
+sesionService --> proveedorSimulado : iniciar()
+sesionService --> sesionesRepository
+pedidosService --> pedidosRepository
+
+sesionesRepository --> tablaVecinos
+sesionesRepository --> tablaIntentos
+sesionesRepository --> tablaSesiones
+pedidosRepository --> tablaPedidos
+pedidosRepository --> tablaMedicamentos : descuenta stock
+
+' =====================================================================
+' RELACIONES — Externos
+' =====================================================================
+proveedorNeuron --> Neuron : HTTPS POST /QuickLogin\n(registro + QR base64)
+AppNeuro --> Neuron : escanea el QR\ny aprueba
+Neuron --> Tunel : POST callback\ncon la identidad
+Tunel --> crearRutasSesion : POST /api/sesion/callback
+
+legend right
+  |= Color |= Significado |
+  |<#E1D5E7>   | Nuevo en US-17 |
+  |<#FFF2CC>   | Modificado por US-17 |
+  |<#F8CECC>   | Externo (Trust Anchor Group / túnel) |
+  |<#EEEEEE>   | Sin cambios (Sprint 1) |
+  Reglas: comprar no exige sesión; el vecino del pedido sale
+  de la cookie, nunca del cuerpo; de la identidad solo se
+  guardan su Id y el nombre de pila; solo los repositories
+  tocan SQLite.
+endlegend
+
+@enduml

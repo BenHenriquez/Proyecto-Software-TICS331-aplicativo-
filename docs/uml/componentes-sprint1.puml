@@ -1,0 +1,176 @@
+@startuml componentes-sprint1
+' Diagrama de componentes del Sprint 1 · FARMAC-IA (TICS331 · Equipo BBMVV)
+' Historias: US-02 Consultar medicamento (#1) · US-13 Mantener stock (#2) · US-15 Realizar compra/pedido (#3)
+' Los nombres son los del código: frontend/src/** y backend/src/** (cada componente indica su archivo).
+' Si cambian nombres de clases, funciones o endpoints, actualizar este archivo.
+
+title FARMAC-IA · Diagrama de componentes (Sprint 1)
+
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam defaultFontSize 13
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam component {
+  BorderColor #555555
+}
+skinparam database {
+  BorderColor #555555
+  BackgroundColor #FFFFFF
+}
+
+' Colores por historia: US-02 azul · US-13 verde · US-15 naranja · compartido gris
+!$us02 = "#DAE8FC"
+!$us13 = "#D5E8D4"
+!$us15 = "#FFE6CC"
+!$comp = "#EEEEEE"
+
+' =====================================================================
+' NAVEGADOR — frontend (React + Vite + TypeScript)
+' =====================================================================
+package "Navegador · frontend (React + Vite)" as Frontend {
+
+  component "main.tsx\n(BrowserRouter)" as main $comp
+  component "App\n(App.tsx · rutas / y /backoffice)" as App $comp
+  component "Layout\n(components/Layout.tsx)" as Layout $comp
+  component "NoEncontrada\n(pages/NoEncontrada.tsx)" as NoEncontrada $comp
+
+  package "Páginas" {
+    component "Buscador\n(pages/Buscador.tsx)\nUS-02 + US-15" as Buscador $us02
+    component "Backoffice\n(pages/Backoffice.tsx)\nUS-13" as Backoffice $us13
+  }
+
+  package "Componentes" {
+    component "TarjetaMedicamento\n(components/TarjetaMedicamento.tsx)\nUS-02" as TarjetaMedicamento $us02
+    component "SelectorCantidad\n(components/SelectorCantidad.tsx)\nUS-15 #17" as SelectorCantidad $us15
+    component "ConfirmarPedido\n(components/ConfirmarPedido.tsx)\nUS-15 #18" as ConfirmarPedido $us15
+    component "FilaMantencion\n(components/FilaMantencion.tsx)\nUS-13 #13" as FilaMantencion $us13
+  }
+
+  package "lib" {
+    component "api\n(lib/api.ts)\nbuscarMedicamentos · confirmarPedido\nlistarBackoffice · guardarMedicamento" as api $comp
+    component "formato\n(lib/formato.ts)\nformatoPesos" as formato $comp
+  }
+}
+
+' =====================================================================
+' SERVIDOR — backend (Node 20 + Express): routes → services → repositories
+' =====================================================================
+package "Servidor · backend (Node 20 + Express)" as Backend {
+
+  component "server.js" as server $comp
+  component "config\n(config.js · lee .env:\nPORT, DB_PATH, BACKOFFICE_TOKEN)" as config $comp
+  component "crearApp\n(app.js · express.json,\nmonta todo bajo /api)" as crearApp $comp
+
+  package "routes" {
+
+
+    component "crearRutasMedicamentos\n(routes/medicamentos.js)\nUS-02" as crearRutasMedicamentos $us02
+    component "crearRutasPedidos\n(routes/pedidos.js)\nUS-15" as crearRutasPedidos $us15
+    component "crearRutasBackoffice\n(routes/backoffice.js)\nUS-13" as crearRutasBackoffice $us13
+  }
+
+  component "requiereTokenBackoffice\n(middleware/requiereTokenBackoffice.js)\ntoken SIMULADO · header x-backoffice-token" as requiereToken $us13
+
+  package "services" {
+    component "crearMedicamentosService\n(services/medicamentosService.js)\nbuscar(q) · normalizarBusqueda" as medicamentosService $us02
+    component "crearPedidosService\n(services/pedidosService.js)\nconfirmarPedido()" as pedidosService $us15
+    component "crearBackofficeService\n(services/backofficeService.js)\nlistarMedicamentos()\nactualizarMedicamento()" as backofficeService $us13
+  }
+
+  package "repositories (única capa que toca SQLite)" {
+    component "crearMedicamentosRepository\n(repositories/medicamentosRepository.js)\nbuscar · listarActivos\nactualizarPrecioYStock · insertarVarios" as medicamentosRepository $comp
+    component "crearPedidosRepository\n(repositories/pedidosRepository.js)\nconfirmarPedido (UPDATE stock >= ? + INSERT\nen una sola transacción)" as pedidosRepository $us15
+    component "db\n(repositories/db.js)\nabrirDb · crearEsquema · borrarDb" as dbModulo $comp
+  }
+
+  package "Carga de datos sintéticos (npm run seed)" {
+    component "scripts/seed.js" as scriptSeed $comp
+    component "sembrar\n(repositories/seed.js)" as sembrar $comp
+    component "leerSemillaCsv\n(repositories/semillaCsv.js)" as semillaCsv $comp
+  }
+}
+
+' =====================================================================
+' DATOS
+' =====================================================================
+database "SQLite · farmacia.db\n(better-sqlite3 · db/schema.sql)" as SQLite {
+  component "medicamentos\n(stock, precio_unitario,\nbusqueda, version)" as tablaMedicamentos <<tabla>> $comp
+  component "pedidos\n(numero_pedido, total,\nestado)" as tablaPedidos <<tabla>> $us15
+}
+
+artifact "medicamentos_semilla.csv\n(seed/ · datos sintéticos)" as csv $comp
+
+' =====================================================================
+' RELACIONES — Frontend
+' =====================================================================
+main --> App
+App --> Layout
+App --> Buscador
+App --> Backoffice
+App --> NoEncontrada
+
+Buscador --> TarjetaMedicamento
+Buscador --> SelectorCantidad : "onContinuar(cantidad)"
+Buscador --> ConfirmarPedido
+Backoffice --> FilaMantencion
+
+Buscador --> api : buscarMedicamentos
+ConfirmarPedido --> api : confirmarPedido
+Backoffice --> api : listarBackoffice\nguardarMedicamento
+
+TarjetaMedicamento --> formato
+SelectorCantidad --> formato
+ConfirmarPedido --> formato
+FilaMantencion --> formato
+
+' Frontend → Backend por HTTP (en desarrollo, Vite hace proxy de /api a localhost:PORT)
+api --> crearRutasMedicamentos : HTTP GET /api/medicamentos?q=
+api --> crearRutasPedidos : HTTP POST /api/pedidos
+api --> crearRutasBackoffice : HTTP GET /api/backoffice/medicamentos\nHTTP PUT /api/backoffice/medicamentos/:codigo
+
+' =====================================================================
+' RELACIONES — Backend
+' =====================================================================
+server --> config
+server --> dbModulo : abrirDb(rutaDb)
+server --> crearApp : crearApp({ db, tokenBackoffice })
+
+crearApp --> crearRutasMedicamentos
+crearApp --> crearRutasPedidos
+crearApp --> crearRutasBackoffice
+
+
+crearRutasBackoffice --> requiereToken : GET y PUT
+crearRutasMedicamentos --> medicamentosService : buscar(q)
+crearRutasPedidos --> pedidosService : confirmarPedido()
+crearRutasBackoffice --> backofficeService : listarMedicamentos()\nactualizarMedicamento()
+
+medicamentosService --> medicamentosRepository : buscar(palabras)
+backofficeService --> medicamentosRepository : listarActivos()\nactualizarPrecioYStock()
+pedidosService --> pedidosRepository : confirmarPedido()
+
+' Seed
+scriptSeed --> sembrar
+sembrar --> dbModulo
+sembrar --> semillaCsv
+sembrar --> medicamentosRepository : insertarVarios()
+semillaCsv ..> csv : lee
+
+' Acceso a SQLite
+medicamentosRepository --> tablaMedicamentos
+pedidosRepository --> tablaMedicamentos : descuenta stock\n(stock >= cantidad)
+pedidosRepository --> tablaPedidos : inserta pedido
+dbModulo ..> SQLite : abre y crea esquema
+
+legend right
+  |= Color |= Historia |
+  |<#DAE8FC>   | US-02 Consultar medicamento (#1) |
+  |<#D5E8D4>   | US-13 Mantener stock (#2) |
+  |<#FFE6CC>   | US-15 Realizar compra/pedido (#3) |
+  |<#EEEEEE>   | Compartido por varias historias |
+  Reglas: el precio y el total se calculan en el backend;
+  solo los repositories tocan SQLite.
+endlegend
+
+@enduml
