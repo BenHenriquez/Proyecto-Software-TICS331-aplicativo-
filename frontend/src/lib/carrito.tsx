@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 // US-16 Carrito (#42). Guarda lo que la vecina eligió: solo código, nombre, precio de referencia y
 // cantidad. El precio y el total reales los calcula siempre el backend (regla 1): aquí se usan
@@ -78,37 +78,59 @@ function guardar(items: ItemCarrito[]) {
 
 export function CarritoProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ItemCarrito[]>(leerGuardado);
+  // Siempre el carrito más reciente, aunque se llame dos veces a `agregar` antes de que React vuelva a dibujar.
+  const actual = useRef(items);
+
+  const aplicar = useCallback((siguiente: ItemCarrito[]) => {
+    actual.current = siguiente;
+    setItems(siguiente);
+  }, []);
 
   useEffect(() => guardar(items), [items]);
 
+  // Si otra pestaña cambia el carrito (por ejemplo, confirma el pedido y lo vacía), esta lo vuelve a leer:
+  // así no se puede confirmar dos veces lo mismo desde una pestaña que quedó con el carrito viejo.
+  // El evento solo llega a las OTRAS pestañas, y si el contenido no cambia no se vuelve a escribir.
+  useEffect(() => {
+    const alCambiarAlmacen = (evento: StorageEvent) => {
+      if (evento.key !== null && evento.key !== CLAVE_ALMACEN) return;
+      const guardado = leerGuardado();
+      if (JSON.stringify(guardado) !== JSON.stringify(actual.current)) aplicar(guardado);
+    };
+    window.addEventListener('storage', alCambiarAlmacen);
+    return () => window.removeEventListener('storage', alCambiarAlmacen);
+  }, [aplicar]);
+
   const agregar = useCallback<Carrito['agregar']>(
     (medicamento, cantidad) => {
-      const existente = items.find((i) => i.codigo === medicamento.codigo);
-      if (!existente && items.length >= MEDICAMENTOS_MAXIMOS) return { ok: false, motivo: 'carrito_lleno' };
+      const vigentes = actual.current;
+      const existente = vigentes.find((i) => i.codigo === medicamento.codigo);
+      if (!existente && vigentes.length >= MEDICAMENTOS_MAXIMOS) return { ok: false, motivo: 'carrito_lleno' };
 
       const pedida = (existente?.cantidad ?? 0) + cantidad;
       const final = Math.min(pedida, CANTIDAD_MAXIMA_POR_MEDICAMENTO);
       // El precio se actualiza al que se vio en esta búsqueda, que es el más reciente.
-      setItems((actuales) =>
+      aplicar(
         existente
-          ? actuales.map((i) => (i.codigo === medicamento.codigo ? { ...i, ...medicamento, cantidad: final } : i))
-          : [...actuales, { ...medicamento, cantidad: final }],
+          ? vigentes.map((i) => (i.codigo === medicamento.codigo ? { ...i, ...medicamento, cantidad: final } : i))
+          : [...vigentes, { ...medicamento, cantidad: final }],
       );
       return { ok: true, cantidad: final, recortada: pedida > final };
     },
-    [items],
+    [aplicar],
   );
 
-  const cambiarCantidad = useCallback((codigo: string, cantidad: number) => {
-    const valida = Math.min(Math.max(Math.trunc(cantidad), 1), CANTIDAD_MAXIMA_POR_MEDICAMENTO);
-    setItems((actuales) => actuales.map((i) => (i.codigo === codigo ? { ...i, cantidad: valida } : i)));
-  }, []);
+  const cambiarCantidad = useCallback(
+    (codigo: string, cantidad: number) => {
+      const valida = Math.min(Math.max(Math.trunc(cantidad), 1), CANTIDAD_MAXIMA_POR_MEDICAMENTO);
+      aplicar(actual.current.map((i) => (i.codigo === codigo ? { ...i, cantidad: valida } : i)));
+    },
+    [aplicar],
+  );
 
-  const quitar = useCallback((codigo: string) => {
-    setItems((actuales) => actuales.filter((i) => i.codigo !== codigo));
-  }, []);
+  const quitar = useCallback((codigo: string) => aplicar(actual.current.filter((i) => i.codigo !== codigo)), [aplicar]);
 
-  const vaciar = useCallback(() => setItems([]), []);
+  const vaciar = useCallback(() => aplicar([]), [aplicar]);
 
   const valor = useMemo<Carrito>(
     () => ({

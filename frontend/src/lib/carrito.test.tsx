@@ -184,6 +184,69 @@ describe('carrito', () => {
     });
   });
 
+  describe('llamadas seguidas y otras pestañas', () => {
+    it('dos «agregar» del mismo medicamento en el mismo instante se suman, no se repiten', () => {
+      const { result } = montar();
+
+      act(() => {
+        result.current.agregar(losartan, 2);
+        result.current.agregar(losartan, 3);
+      });
+
+      expect(result.current.items).toEqual([{ ...losartan, cantidad: 5 }]);
+    });
+
+    it(`once «agregar» de medicamentos distintos en el mismo instante respetan el tope de ${MEDICAMENTOS_MAXIMOS}`, () => {
+      const { result } = montar();
+      const resultados: ReturnType<Carrito['agregar']>[] = [];
+
+      act(() => {
+        for (let i = 1; i <= MEDICAMENTOS_MAXIMOS + 1; i++) {
+          resultados.push(result.current.agregar({ codigo: `MED-${i}`, nombre: `Medicamento ${i}`, precioUnitario: 1000 }, 1));
+        }
+      });
+
+      expect(result.current.items).toHaveLength(MEDICAMENTOS_MAXIMOS);
+      expect(resultados.at(-1)).toEqual({ ok: false, motivo: 'carrito_lleno' });
+    });
+
+    it('si otra pestaña vacía el carrito (por ejemplo, al confirmar el pedido), esta pestaña lo ve vacío', () => {
+      const { result } = montar();
+      act(() => void result.current.agregar(losartan, 2));
+
+      act(() => {
+        window.localStorage.setItem(CLAVE, '[]');
+        window.dispatchEvent(new StorageEvent('storage', { key: CLAVE }));
+      });
+
+      expect(result.current.items).toEqual([]);
+      expect(result.current.unidades).toBe(0);
+    });
+
+    it('si otra pestaña agrega algo, esta pestaña lo ve; y lo descartado por inválido no entra', () => {
+      const { result } = montar();
+
+      act(() => {
+        window.localStorage.setItem(CLAVE, JSON.stringify([{ ...amlodipino, cantidad: 4 }, { codigo: 'X', nombre: 'X', precioUnitario: -1, cantidad: 1 }]));
+        window.dispatchEvent(new StorageEvent('storage', { key: CLAVE }));
+      });
+
+      expect(result.current.items).toEqual([{ ...amlodipino, cantidad: 4 }]);
+    });
+
+    it('ignora los cambios de otras claves del navegador', () => {
+      const { result } = montar();
+      act(() => void result.current.agregar(losartan, 1));
+
+      act(() => {
+        window.localStorage.setItem('otra-cosa', '[]');
+        window.dispatchEvent(new StorageEvent('storage', { key: 'otra-cosa' }));
+      });
+
+      expect(result.current.items).toHaveLength(1);
+    });
+  });
+
   describe('uso sin proveedor', () => {
     it('useCarritoOpcional devuelve null para que el buscador y el menú funcionen sin carrito', () => {
       const { result } = renderHook(() => useCarritoOpcional());

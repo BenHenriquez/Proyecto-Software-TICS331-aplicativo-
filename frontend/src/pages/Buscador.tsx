@@ -4,7 +4,7 @@ import ConfirmarPedido from '../components/ConfirmarPedido';
 import SelectorCantidad from '../components/SelectorCantidad';
 import TarjetaMedicamento from '../components/TarjetaMedicamento';
 import { buscarMedicamentos, ErrorApi, type Medicamento } from '../lib/api';
-import { MEDICAMENTOS_MAXIMOS, useCarritoOpcional } from '../lib/carrito';
+import { CANTIDAD_MAXIMA_POR_MEDICAMENTO, MEDICAMENTOS_MAXIMOS, useCarritoOpcional } from '../lib/carrito';
 
 // US-02 Consultar medicamento (#1). #8: buscador y tarjetas de resultado. #9: mensaje claro sin
 // coincidencias y medicamentos sin stock sin opción de compra. Estados: inicial, cargando,
@@ -110,7 +110,7 @@ export default function Buscador() {
     const unidades = r.cantidad === 1 ? '1 unidad' : `${r.cantidad} unidades`;
     setAvisoCarrito({
       texto: r.recortada
-        ? `Tu carrito permite hasta 20 unidades de cada medicamento. Ahora tienes ${unidades} de ${nombre}.`
+        ? `Tu carrito permite hasta ${CANTIDAD_MAXIMA_POR_MEDICAMENTO} unidades de cada medicamento. Ahora tienes ${unidades} de ${nombre}.`
         : `Agregaste ${nombre} a tu carrito. Ahora tienes ${unidades}.`,
       error: false,
     });

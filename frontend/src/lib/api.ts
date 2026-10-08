@@ -236,9 +236,12 @@ export interface FaltanteCarrito {
 // Si fue por falta de stock trae qué medicamentos no alcanzaron.
 export class ErrorCarritoRechazado extends ErrorPedidoRechazado {
   readonly faltantes: FaltanteCarrito[];
-  constructor(mensaje: string, faltantes: FaltanteCarrito[]) {
+  // Códigos de medicamentos que ya no están en el catálogo (404): la pantalla los marca para quitarlos.
+  readonly noDisponibles: string[];
+  constructor(mensaje: string, faltantes: FaltanteCarrito[], noDisponibles: string[] = []) {
     super(mensaje);
     this.faltantes = faltantes;
+    this.noDisponibles = noDisponibles;
   }
 }
 
@@ -280,6 +283,15 @@ function soloFaltantes(valor: unknown): FaltanteCarrito[] {
   );
 }
 
+function soloCodigos(valor: unknown): string[] {
+  if (!Array.isArray(valor)) return [];
+  return valor.flatMap((n) =>
+    n !== null && typeof n === 'object' && typeof (n as { codigo?: unknown }).codigo === 'string'
+      ? [(n as { codigo: string }).codigo]
+      : [],
+  );
+}
+
 // Solo se envían códigos y cantidades: nunca precios ni totales (regla 1).
 export async function confirmarCarrito(items: { codigo: string; cantidad: number }[]): Promise<PedidoCarrito> {
   let respuesta: Response;
@@ -299,7 +311,7 @@ export async function confirmarCarrito(items: { codigo: string; cantidad: number
     throw new ErrorPedidoIncierto(MENSAJE_PEDIDO_INCIERTO);
   }
   if (respuesta.status < 500 && typeof cuerpo?.mensaje === 'string') {
-    throw new ErrorCarritoRechazado(cuerpo.mensaje, soloFaltantes(cuerpo?.faltantes));
+    throw new ErrorCarritoRechazado(cuerpo.mensaje, soloFaltantes(cuerpo?.faltantes), soloCodigos(cuerpo?.noDisponibles));
   }
   throw new ErrorApi(MENSAJE_PEDIDO_GENERICO);
 }

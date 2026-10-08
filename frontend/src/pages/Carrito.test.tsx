@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { CarritoProvider } from '../lib/carrito';
@@ -74,6 +74,11 @@ describe('Carrito', () => {
   });
 
   describe('revisión del carrito antes de confirmar', () => {
+    it('al abrir la pantalla no se roba el foco (Layout lo lleva al contenido)', () => {
+      mostrar();
+      expect(document.activeElement).toBe(document.body);
+    });
+
     it('lista cada medicamento con su precio, cantidad y subtotal estimado, y el total estimado', () => {
       const { fila } = mostrar();
 
@@ -193,6 +198,41 @@ describe('Carrito', () => {
       expect(screen.getByRole('link', { name: 'Buscar otro medicamento' }).getAttribute('href')).toBe('/');
     });
 
+    it('si el precio real es distinto al que vio al agregar, lo avisa con el antes y el ahora', async () => {
+      fetchFalso.mockReturnValue(
+        responder(201, {
+          pedido: {
+            ...pedidoCreado,
+            items: [
+              { ...pedidoCreado.items[0], precioUnitario: 2100, subtotal: 4200 },
+              pedidoCreado.items[1],
+            ],
+            total: 5690,
+          },
+        }),
+      );
+      const { usuario, confirmar } = mostrar();
+
+      await usuario.click(confirmar());
+
+      await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
+      const aviso = screen.getByRole('note');
+      expect(aviso.textContent).toContain('El precio cambió desde que agregaste tus medicamentos');
+      expect(aviso.textContent).toContain('Losartán 50 mg: ahora $2.100 por unidad (antes $1.990).');
+      expect(aviso.textContent).not.toContain('Amlodipino');
+      expect(screen.getByText('Total: $5.690')).toBeTruthy();
+    });
+
+    it('si los precios no cambiaron, no muestra ningún aviso de precio', async () => {
+      fetchFalso.mockReturnValue(responder(201, { pedido: pedidoCreado }));
+      const { usuario, confirmar } = mostrar();
+
+      await usuario.click(confirmar());
+
+      await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
+      expect(screen.queryByRole('note')).toBeNull();
+    });
+
     it('vacía el carrito, anuncia el número de pedido y lleva el foco al resultado', async () => {
       fetchFalso.mockReturnValue(responder(201, { pedido: pedidoCreado }));
       const { usuario, confirmar } = mostrar();
@@ -219,6 +259,27 @@ describe('Carrito', () => {
       expect(fetchFalso).toHaveBeenCalledOnce();
 
       terminar(new Response(JSON.stringify({ pedido: pedidoCreado }), { status: 201 }));
+      await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
+      expect(fetchFalso).toHaveBeenCalledOnce();
+    });
+
+    it('un clic tardío justo después de llegar la respuesta (antes de que se dibuje el resultado) NO crea otro pedido', async () => {
+      // La respuesta llega, la pantalla ya la procesó, pero React todavía no quitó el botón: ahí cae un doble clic lento.
+      const respuesta = new Response(JSON.stringify({ pedido: pedidoCreado }), { status: 201 });
+      const leer = respuesta.json.bind(respuesta);
+      respuesta.json = async () => {
+        const cuerpo = await leer();
+        let turno: Promise<void> = Promise.resolve();
+        for (let i = 0; i < 8; i++) turno = turno.then(() => {});
+        void turno.then(() => boton.click());
+        return cuerpo;
+      };
+      fetchFalso.mockReturnValue(Promise.resolve(respuesta));
+      const { usuario, confirmar } = mostrar();
+      const boton = confirmar();
+
+      await usuario.click(boton);
+
       await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
       expect(fetchFalso).toHaveBeenCalledOnce();
     });
@@ -306,6 +367,21 @@ describe('Carrito', () => {
       expect(JSON.parse(String(fetchFalso.mock.calls[1][1].body)).items[1]).toEqual({ codigo: 'MED-003', cantidad: 2 });
     });
 
+    it('al ajustar una cantidad tras el rechazo, el foco se queda en el botón que se usó', async () => {
+      fetchFalso.mockReturnValue(responder(409, rechazoSinStock));
+      const { usuario, confirmar, fila } = mostrar([losartan, { ...amlodipino, cantidad: 3 }]);
+
+      await usuario.click(confirmar());
+      await screen.findByRole('alert');
+
+      const menos = fila('Amlodipino 5 mg').getByRole('button', { name: 'Disminuir cantidad de Amlodipino 5 mg' });
+      menos.focus();
+      await usuario.keyboard('{Enter}');
+
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(document.activeElement).toBe(menos);
+    });
+
     it('si se quita el medicamento sin stock, el resto del carrito se puede confirmar', async () => {
       fetchFalso.mockReturnValueOnce(responder(409, rechazoSinStock));
       const { usuario, confirmar } = mostrar();
@@ -322,7 +398,33 @@ describe('Carrito', () => {
       expect(JSON.parse(String(fetchFalso.mock.calls[1][1].body))).toEqual({ items: [{ codigo: 'MED-001', cantidad: 2 }] });
     });
 
-    it('otros rechazos (un medicamento fuera del catálogo) muestran su mensaje sin marcar nada', async () => {
+    it('un medicamento que ya no está en el catálogo se marca en su fila, y quitándolo se puede confirmar el resto', async () => {
+      fetchFalso.mockReturnValueOnce(
+        responder(404, {
+          motivo: 'no_existe',
+          mensaje: 'Hay medicamentos de tu carrito que ya no están en el catálogo. Quítalos para continuar.',
+          noDisponibles: [{ codigo: 'MED-003' }],
+        }),
+      );
+      const { usuario, confirmar, fila } = mostrar();
+
+      await usuario.click(confirmar());
+
+      expect((await screen.findByRole('alert')).textContent).toContain('ya no están en el catálogo');
+      expect(fila('Amlodipino 5 mg').getByText('Ya no está disponible en la farmacia. Quítalo para poder continuar.')).toBeTruthy();
+      expect(fila('Losartán 50 mg').queryByText(/Ya no está disponible/)).toBeNull();
+      expect(guardado()).toHaveLength(2);
+
+      await usuario.click(screen.getByRole('button', { name: 'Quitar Amlodipino 5 mg del carrito' }));
+      expect(screen.queryByText(/Ya no está disponible/)).toBeNull();
+      fetchFalso.mockReturnValueOnce(
+        responder(201, { pedido: { ...pedidoCreado, items: [pedidoCreado.items[0]], total: 3980 } }),
+      );
+      await usuario.click(confirmar());
+      await screen.findByRole('heading', { name: 'Tu pedido fue creado' });
+    });
+
+    it('otros rechazos sin lista de medicamentos muestran su mensaje sin marcar nada', async () => {
       fetchFalso.mockReturnValue(
         responder(404, {
           motivo: 'no_existe',
@@ -373,7 +475,7 @@ describe('Carrito', () => {
       ['con la lista vacía', { pedido: { ...pedidoCreado, items: [] } }],
       ['sin número de pedido', { pedido: { ...pedidoCreado, numeroPedido: '' } }],
       ['sin cuerpo', {}],
-    ])('si el 201 viene %s, avisa que el pedido pudo crearse y NO ofrece reintentar', async (_caso, cuerpo) => {
+    ])('si el 201 viene %s, avisa que el pedido pudo crearse, NO ofrece reintentar y muestra lo que se pedía', async (_caso, cuerpo) => {
       fetchFalso.mockReturnValue(responder(201, cuerpo));
       const { usuario, confirmar } = mostrar();
 
@@ -381,9 +483,35 @@ describe('Carrito', () => {
 
       const alerta = await screen.findByRole('alert');
       expect(alerta.textContent).toMatch(/es posible que se haya creado/);
+      expect(screen.getByRole('heading', { level: 1, name: 'No pudimos mostrarte tu pedido' })).toBeTruthy();
       expect(screen.queryByRole('button', { name: /Confirmar pedido|Intentar de nuevo/ })).toBeNull();
-      expect(guardado()).toHaveLength(2);
+      const pedido = within(screen.getByRole('list', { name: 'Lo que pedías' }));
+      expect(pedido.getByText('Losartán 50 mg')).toBeTruthy();
+      expect(pedido.getByText('2 unidades')).toBeTruthy();
+      expect(pedido.getByText('Amlodipino 5 mg')).toBeTruthy();
+      expect(pedido.getByText('1 unidad')).toBeTruthy();
       expect(screen.getByRole('link', { name: 'Buscar otro medicamento' })).toBeTruthy();
+    });
+
+    it('en ese caso el carrito se vacía: al volver a /carrito no se puede confirmar el mismo pedido otra vez', async () => {
+      fetchFalso.mockReturnValue(responder(201, {}));
+      const { usuario, confirmar } = mostrar();
+
+      await usuario.click(confirmar());
+      await screen.findByRole('alert');
+
+      expect(guardado()).toEqual([]);
+      cleanup();
+      render(
+        <MemoryRouter>
+          <CarritoProvider>
+            <Carrito />
+          </CarritoProvider>
+        </MemoryRouter>,
+      );
+      expect(screen.getByText('Tu carrito está vacío.')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /Confirmar pedido/ })).toBeNull();
+      expect(fetchFalso).toHaveBeenCalledOnce();
     });
   });
 
