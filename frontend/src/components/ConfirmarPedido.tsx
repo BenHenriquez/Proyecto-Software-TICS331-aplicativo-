@@ -78,13 +78,15 @@ export default function ConfirmarPedido({
     setEstado({ tipo: 'confirmando' });
     try {
       setEstado({ tipo: 'exito', pedido: await confirmarPedido(codigo, cantidad) });
+      // `enviando` NO se libera: el pedido ya se creó y entre este punto y que React quite el botón hay un
+      // instante en que un clic tardío (doble clic, Enter repetido) crearía un segundo pedido.
     } catch (error) {
+      // Tampoco se libera si la respuesta fue ilegible: el pedido pudo crearse y no se ofrece reintentar.
+      if (!(error instanceof ErrorPedidoIncierto)) enviando.current = false;
       const mensaje = error instanceof ErrorApi ? error.message : 'Tuvimos un problema al crear tu pedido.';
       if (error instanceof ErrorPedidoRechazado) setEstado({ tipo: 'rechazado', mensaje });
       else if (error instanceof ErrorPedidoIncierto) setEstado({ tipo: 'incierto', mensaje });
       else setEstado({ tipo: 'error', mensaje });
-    } finally {
-      enviando.current = false;
     }
   }
 
