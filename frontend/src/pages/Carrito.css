@@ -1,0 +1,228 @@
+/* Carrito (US-16, #42). Usa los tokens de estilos.css.
+   Adultos mayores: letra >= 20 px, botones >= 56 px, alto contraste y foco siempre visible. */
+.carrito {
+  display: grid;
+  gap: 1rem;
+  max-width: 36rem;
+}
+
+.carrito:focus {
+  outline: none;
+}
+
+.carrito h1 {
+  margin: 0;
+}
+
+.carrito__lista,
+.carrito__resumen {
+  list-style: none;
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+}
+
+.fila-carrito {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem 1.25rem;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: var(--fondo);
+}
+
+/* Un medicamento que no alcanzó: borde y texto lo dicen, no solo el color. */
+.fila-carrito--sin-stock {
+  border-color: #8a0000;
+  border-width: 4px;
+}
+
+.fila-carrito__nombre {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.fila-carrito__precio,
+.fila-carrito__subtotal {
+  margin: 0;
+  font-weight: 600;
+}
+
+.fila-carrito__etiqueta {
+  font-weight: 700;
+}
+
+.fila-carrito__control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.fila-carrito__paso {
+  flex: none;
+  width: 64px;
+  min-height: 64px;
+  padding: 0;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+/* aria-disabled no pinta nada por defecto: se ve apagado pero sigue recibiendo el foco. */
+.fila-carrito [aria-disabled='true'] {
+  background: #e3e8ee;
+  border: 2px dashed var(--borde);
+  color: #3a3a3a;
+  cursor: not-allowed;
+}
+
+.fila-carrito__campo {
+  width: 6.5rem;
+  height: 64px; /* igual que los botones «−» y «+» */
+  min-height: 64px;
+  padding-block: 0;
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.fila-carrito__campo[aria-invalid='true'] {
+  border-width: 4px;
+  border-color: #8a0000;
+}
+
+.fila-carrito__error,
+.fila-carrito__alerta,
+.carrito__error {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 6px solid #8a0000;
+  background: #fdecec;
+  color: #5c0000;
+  font-weight: 700;
+}
+
+.carrito__error p {
+  margin: 0;
+}
+
+.carrito__error p + p {
+  margin-top: 0.5rem;
+}
+
+.carrito__error-ayuda {
+  font-weight: 400;
+}
+
+.fila-carrito__quitar {
+  justify-self: start;
+  min-height: 56px;
+}
+
+.carrito__total {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+p.carrito__total {
+  margin: 0;
+}
+
+.carrito__nota {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.carrito__vacio {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.carrito__datos {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--suave);
+  border-radius: 8px;
+}
+
+.carrito__datos div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+}
+
+.carrito__datos dt {
+  font-weight: 700;
+}
+
+.carrito__datos dt::after {
+  content: ':';
+}
+
+.carrito__datos dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.carrito__resumen li {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--borde);
+  border-radius: 8px;
+}
+
+.carrito__resumen-nombre {
+  font-weight: 800;
+}
+
+.carrito__principal {
+  width: 100%;
+  min-height: 64px;
+  font-size: 1.3rem;
+}
+
+.carrito__principal[aria-disabled='true'] {
+  background: #e3e8ee;
+  border: 2px dashed var(--borde);
+  color: #3a3a3a;
+  cursor: progress;
+}
+
+/* Enlaces que se ven y se usan como botones grandes. */
+.boton-enlace {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--primario);
+  border-radius: 8px;
+  background: var(--fondo);
+  color: var(--primario);
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+}
+
+.boton-enlace--principal {
+  min-height: 64px;
+  background: var(--primario);
+  color: var(--primario-texto);
+  font-size: 1.3rem;
+}
+
+/* Solo para lector de pantalla: anuncia «Confirmando…», los cambios del carrito y el número de pedido. */
+.carrito__anuncio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
