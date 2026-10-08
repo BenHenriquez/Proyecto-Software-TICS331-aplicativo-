@@ -102,8 +102,8 @@ Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para 
 **Detalle del carrito, `POST /api/pedidos` con `items` (US-16, #42):**
 
 - Un solo pedido para todos los medicamentos del carrito. El precio, el subtotal de cada ítem y el total los calcula siempre el servidor: cualquier `precioUnitario`, `subtotal` o `total` que mande el cliente se ignora.
-- Cada ítem tiene `cantidad` entera de 1 a 20 y un `codigo`. Si el mismo `codigo` viene repetido, se junta en un solo ítem (y la suma también debe ser de 1 a 20). Máximo 10 medicamentos distintos.
-- `items` vacío: `400 carrito_vacio`. `items` que no es una lista, o un ítem que no es un objeto: `400 carrito_invalido`. Más de 10: `400 demasiados_items`. Cantidad inválida en cualquier ítem: `400 cantidad_invalida`. Algún código fuera del catálogo: `404 no_existe`. En todos esos casos no se descuenta nada.
+- Cada ítem tiene `cantidad` entera de 1 a 20 y un `codigo`. Si el mismo `codigo` viene repetido, se junta en un solo ítem (y la suma también debe ser de 1 a 20). El máximo de 10 cuenta medicamentos **distintos**, después de juntar los repetidos. Si `items` falta o es `null`, es la compra simple de un solo medicamento.
+- `items` vacío: `400 carrito_vacio`. `items` que no es una lista, o un ítem que no es un objeto: `400 carrito_invalido`. Más de 10: `400 demasiados_items`. Cantidad inválida en cualquier ítem: `400 cantidad_invalida`. Algún código fuera del catálogo (o desactivado): `404 { motivo: "no_existe", mensaje, noDisponibles: [{ codigo }] }` con todos los que faltan, para que la pantalla marque cuáles quitar. En todos esos casos no se descuenta nada.
 - Todo o nada: si algún ítem no tiene stock suficiente responde `409 { motivo: "sin_stock", mensaje, faltantes: [{ codigo, medicamento, stockDisponible }] }`. El `mensaje` nombra cada medicamento que no alcanza y dice que no se creó ningún pedido. No se crea el pedido y el stock de todos los ítems queda sin cambios.
 - La compra de un solo medicamento (`{ codigo, cantidad }`) mantiene sus mensajes de US-15 y no trae `faltantes`.
 
@@ -115,13 +115,16 @@ La condición de stock va **dentro del mismo UPDATE**. SQLite ejecuta cada sente
 // items: [{ codigo, cantidad }], sin códigos repetidos
 const confirmarPedido = db.transaction(({ items, alias }) => {
   const meds = [];
+  const inexistentes = [];
   for (const { codigo, cantidad } of items) {
     const med = db.prepare(
       'SELECT * FROM medicamentos WHERE codigo = ? AND activo = 1'
     ).get(codigo);
-    if (!med) return { ok: false, motivo: 'no_existe' };   // todavía no se escribió nada
-    meds.push({ med, cantidad });
+    if (!med) inexistentes.push(codigo);
+    else meds.push({ med, cantidad });
   }
+  // todavía no se escribió nada: se informan todos los que no existen
+  if (inexistentes.length > 0) return { ok: false, motivo: 'no_existe', codigos: inexistentes };
 
   const faltantes = [];
   for (const { med, cantidad } of meds) {
