@@ -4,11 +4,11 @@ Los diagramas están en PlantUML (`.puml`), cada uno con su imagen (`.png`). Usa
 
 | Diagrama | Qué muestra |
 |---|---|
-| [componentes-sprint1](componentes-sprint1.puml) | Componentes del Sprint 1 (US-02, US-13 y US-15). Queda como foto de ese sprint. |
+| [componentes-sprint1](componentes-sprint1.puml) | Componentes del Sprint 1 (US-02, US-13 y US-15) más el carrito (US-16). US-17 va aparte. |
 | [componentes-us17](componentes-us17.puml) | Lo que la US-17 agrega o cambia sobre el Sprint 1. |
 | [secuencia-us17-ingreso](secuencia-us17-ingreso.puml) | Paso a paso del ingreso con QR de Neuro-Access. |
 
-**Componentes del Sprint 1.** Muestra el navegador (React), el servidor (Express) y la base SQLite, con las capas `routes → services → repositories`, de las que solo los repositories tocan SQLite. Los colores separan la búsqueda de medicamentos (US-02), el panel de mantención de precio y stock (US-13) y la compra atómica (US-15).
+**Componentes del Sprint 1.** Muestra el navegador (React), el servidor (Express) y la base SQLite, con las capas `routes → services → repositories`, de las que solo los repositories tocan SQLite. Los colores separan la búsqueda de medicamentos (US-02), el panel de mantención de precio y stock (US-13) y la compra atómica (US-15). En verde agua está el carrito (US-16): la pantalla `Carrito`, el `CarritoProvider` del front y la tabla `pedido_items`.
 
 **Componentes de US-17.** Muestra en morado lo nuevo y en amarillo lo modificado para que el vecino ingrese con su app Neuro-Access: la pantalla Ingresar, Mis pedidos, la sesión compartida en el front (`SesionProvider`), las rutas y el servicio de sesión, los dos proveedores de identidad (el Neuron de TAG y el simulado) y las tablas `vecinos`, `intentos_ingreso` y `sesiones`. En rosado están los externos: el Neuron público `lab.tagroot.io`, la app del vecino y el túnel que deja llegar el aviso del Neuron al backend durante el desarrollo.
 
