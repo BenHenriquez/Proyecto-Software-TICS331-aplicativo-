@@ -187,7 +187,7 @@ Y si no hay coincidencias exactas, debe sugerir principios activos o presentacio
 - **Salir.** Dado que el vecino ingresó, cuando presiona «Salir», entonces la sesión termina y «Mis pedidos» vuelve a pedir el ingreso.
 
 **Notas / RNF / dependencias:**
-- Quick Login de Trust Anchor Group (Neuro-Access / Neuro-Ledger), con proveedor simulado para tests y demo. Detalle técnico en `docs/sprint-2/NEURO_ACCESS_NOTAS.md` y en `docs/uml/`.
+- Quick Login de Trust Anchor Group (Neuro-Access / Neuro-Ledger), con proveedor simulado para tests y demo. Detalle técnico en `docs/arquitectura/NEURO_ACCESS_NOTAS.md` y en `docs/uml/`.
 - Privacidad (Ley 19.628, repositorio público): de la identidad solo se guarda su Id y el nombre de pila; nunca RUT, teléfono ni correo.
 - Comprar no exige sesión. Con sesión, también los pedidos del carrito (US-16) quedan a nombre del vecino.
 
