@@ -51,6 +51,17 @@ El `.env` no se sube al repositorio.
 - **Panel de mantención:** en <http://localhost:5173/backoffice> la funcionaria escribe la clave del equipo (el valor de `BACKOFFICE_TOKEN` de tu `.env`; es simulada y solo vive en la memoria de la página, nunca se guarda en el navegador), ve el listado con el precio y el stock de cada medicamento, los edita y confirma con «Guardar cambios». Si el valor no es válido, el motivo aparece junto al campo y se mantiene el valor guardado. Si una venta cambió el medicamento mientras editaba, el panel avisa y recarga lo guardado para que pueda volver a intentarlo.
 - **Fuera del Sprint 1:** pagos, Praxsuite, SAP, WhatsApp, delivery e IA no están implementados.
 
+## Navegación y botones
+
+El sitio separa a sus dos tipos de usuarias:
+
+- **Vecinas y cuidadoras:** cabecera en dos franjas. La azul tiene la marca y un espacio fijo para la cuenta: «Ingresar» o «Hola, X · Salir» siempre en el mismo lugar, así el menú no cambia al ingresar. La clara tiene los destinos «Buscar medicamento», «Mis pedidos» y el botón «Mi carrito» con la cantidad en una insignia. En el celular la cabecera es compacta y, en «Buscar medicamento», queda fija arriba al bajar por los resultados.
+- **Personal de la farmacia:** el panel (`/backoffice`) no está en el menú de vecinas; se entra desde el pie («¿Trabajas en la farmacia? Panel de la farmacia») y tiene su propia cabecera con la cinta «Uso interno del personal de la farmacia».
+- **Botones:** un principal por pantalla, uno secundario, «Volver» como texto con flecha y «Quitar» en rojo. La compra muestra un indicador de pasos (Buscar · Cantidad · Revisar · Listo) y el selector explica sus dos caminos.
+- **Fuente:** Atkinson Hyperlegible, diseñada para baja visión, incluida en el proyecto (funciona sin internet).
+
+Capturas en `docs/ux/` (datos sintéticos, modo simulado).
+
 ## Ingresar con Neuro-Access (US-17)
 
 En <http://localhost:5173/ingresar> el vecino ingresa escaneando un QR con la app **Neuro-Access** de Trust Anchor Group (Quick Login sobre Neuro-Ledger), sin usuario ni clave. Con la sesión iniciada, sus pedidos quedan a su nombre y los revisa en **Mis pedidos** (`/mis-pedidos`). Buscar y comprar **no** exigen ingresar.
