@@ -26,15 +26,15 @@ Leyenda de estado: **Ready** (cumple la Definition of Ready) · **Backlog** (sin
 | US-13 | Mantener stock: actualizar precio y stock (backoffice) | Funcionaria de backoffice | — | 5 | Sprint 1 | Ready |
 | US-14 | Alerta con IA | — | — | — | Fuera del Sprint 1 | Backlog |
 | US-15 | Realizar compra/pedido | Vecina | — | 8 | Sprint 1 | Ready |
-| US-16 | Carrito de compras con varios medicamentos y un solo pedido | Vecino | Por definir | Por definir | Por definir | Por definir |
-| US-17 | Iniciar sesión de forma rápida con un QR | Vecino | Por definir | Por definir | Por definir | Por definir |
+| US-16 | Carrito de compras con varios medicamentos y un solo pedido | Vecino | Por definir | Por definir | Por definir | Implementada (PR #50); falta aceptación del PO |
+| US-17 | Ingresar con un QR de Neuro-Access y ver mis pedidos | Vecino | Por definir | Por definir | Por definir | Implementada (PR #57); falta aceptación del PO |
 
 Notas sobre la tabla:
 
 - US-13, US-14 y US-15 no figuran en la planilla de Inception; vienen del tablero y de `docs/sprint-1/META_Y_BACKLOG.md`. Su MoSCoW no está definido en esas fuentes; hay que confirmarlo.
 - US-14 solo se conoce por el título «alerta con IA» (`META_Y_BACKLOG.md`). Falta su historia.
 - La planilla asigna US-01, US-06 y US-10 al Sprint 1, pero el Sprint 1 comprometido es US-02, US-13 y US-15 (18 pts). **Decisión pendiente:** reasignar sprint a US-01, US-06 y US-10 en la planilla, o dejarlas fuera del Sprint 1 como en `META_Y_BACKLOG.md`.
-- Los puntos de US-16 y US-17 no están estimados; los asigna el equipo en la estimación.
+- US-16 y US-17 ya están implementadas, pero su MoSCoW y sus puntos siguen sin definir: el equipo debe registrarlos (estimación retroactiva) para completar su DoR.
 
 ## 2. Detalle de las historias
 
@@ -157,37 +157,39 @@ Y si no hay coincidencias exactas, debe sugerir principios activos o presentacio
 
 **Criterios:** ver `docs/sprint-1/META_Y_BACKLOG.md` §1.3 (feliz, error por stock y dos escenarios de concurrencia). Implementada en el Sprint 1 para **un solo medicamento por pedido**; US-16 la extiende.
 
-### US-16 · Carrito de compras (por definir)
+### US-16 · Carrito de compras
 
 **Historia:** Como vecino que utiliza el sitio web de la farmacia, quiero tener un carrito de compras de todos los medicamentos que seleccione, para tener solo un pedido.
 
-**MoSCoW / puntos / sprint:** por definir con el equipo y el PO.
+**MoSCoW / puntos / sprint:** por definir con el equipo y el PO. **Implementada** en el PR #50 (sub-issues #51 a #56).
 
-**Criterios (borrador para que el equipo los revise):**
+**Criterios (Given/When/Then), los del issue #42:**
 
 - **Escenario feliz.** Dado que la vecina agregó al carrito dos medicamentos con stock disponible, cuando confirma el carrito, entonces el sistema crea **un solo pedido** con los dos medicamentos, el total calculado y el estado `Solicitud creada`, y descuenta el stock de cada uno.
 - **Escenario de error — sin stock.** Dado que uno de los medicamentos del carrito ya no tiene stock suficiente, cuando la vecina confirma, entonces el sistema no crea el pedido, indica cuál medicamento no está disponible y mantiene el stock de todos sin cambios.
 
 **Notas / dependencias:**
-- Hoy el pedido guarda un único medicamento (`pedidos.codigo_medicamento`, `cantidad`, `total`). Un pedido con varios ítems requiere cambiar el modelo de datos (por ejemplo, una tabla de ítems), actualizar `docs/arquitectura/MODELO_DE_DATOS.md` y `docs/uml/`.
+- El pedido pasó a tener ítems: tabla `pedido_items` (ver `docs/arquitectura/MODELO_DE_DATOS.md` y `docs/uml/`).
 - Debe respetar la regla de compra atómica: el descuento de todos los ítems y el pedido van en la misma transacción.
 - El precio y el total se calculan siempre en el backend.
 
-### US-17 · Inicio de sesión con QR (por definir)
+### US-17 · Ingreso con QR de Neuro-Access
 
-**Historia:** Como vecino que utiliza el sitio web de la farmacia, quiero iniciar sesión de manera rápida y sencilla con un QR.
+**Historia:** Como vecino que usa el sitio de FarmacIA, quiero ingresar escaneando un QR con mi app Neuro-Access, para no tener que crear usuario ni recordar contraseñas y que mis pedidos queden a mi nombre.
 
-**MoSCoW / puntos / sprint:** por definir con el equipo y el PO.
+**MoSCoW / puntos:** por definir con el equipo y el PO. **Implementada** en el PR #57 (sub-issues #44 a #49).
 
-**Criterios (borrador para que el equipo los revise):**
+**Criterios (Given/When/Then), los mismos del issue #43:**
 
-- **Escenario feliz.** Dado que el vecino está en la pantalla de ingreso del sitio web, cuando escanea con su teléfono el código QR que se muestra en pantalla, entonces el sistema inicia su sesión sin que tenga que escribir usuario ni clave.
-- **Escenario de error.** Dado que el código QR venció o no es válido, cuando el vecino lo escanea, entonces el sistema no inicia sesión e indica en español simple cómo obtener uno nuevo.
+- **Ingreso feliz.** Dado que el vecino tiene Neuro-Access con su identidad aprobada, cuando escanea el QR de la pantalla «Ingresar» y aprueba la solicitud en la app, entonces el sitio lo saluda por su nombre sin pedirle usuario ni clave.
+- **QR vencido.** Dado que pasaron 5 minutos sin que se apruebe el QR, cuando el vecino vuelve a la pantalla, entonces no se inicia sesión y el sitio le ofrece generar un código nuevo, en español simple.
+- **Pedido a su nombre.** Dado que el vecino ingresó, cuando confirma un pedido, entonces el pedido queda asociado a él y aparece en «Mis pedidos» con número, medicamento, total y estado. Si no ingresó, puede comprar igual que antes.
+- **Salir.** Dado que el vecino ingresó, cuando presiona «Salir», entonces la sesión termina y «Mis pedidos» vuelve a pedir el ingreso.
 
-**Preguntas abiertas para el equipo y el PO:**
-1. ¿Qué QR se escanea: el que muestra la web para escanearlo desde el teléfono, o uno que el vecino ya tiene (por ejemplo, de su inscripción)? ¿Quién lo emite y cómo se identifica al vecino?
-2. Hoy el prototipo **no tiene vecinos ni sesión**. Esta historia introduce autenticación de usuarios; el Sprint 1 solo tiene un token simulado para el backoffice.
-3. Si la identificación usa RUT o datos personales, aplica la Ley 19.628 (ver RNF de US-01). El Sprint 1 excluye RUT y pacientes.
+**Notas / RNF / dependencias:**
+- Quick Login de Trust Anchor Group (Neuro-Access / Neuro-Ledger), con proveedor simulado para tests y demo. Detalle técnico en `docs/sprint-2/NEURO_ACCESS_NOTAS.md` y en `docs/uml/`.
+- Privacidad (Ley 19.628, repositorio público): de la identidad solo se guarda su Id y el nombre de pila; nunca RUT, teléfono ni correo.
+- Comprar no exige sesión. Con sesión, también los pedidos del carrito (US-16) quedan a nombre del vecino.
 
 ## 3. Pendientes de la planilla
 
