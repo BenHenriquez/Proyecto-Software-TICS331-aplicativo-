@@ -36,11 +36,7 @@ CREATE TABLE medicamentos (
 
 CREATE TABLE pedidos (
   numero_pedido      TEXT PRIMARY KEY,             -- "P-" + 6 caracteres alfanuméricos
-  codigo_medicamento TEXT NOT NULL REFERENCES medicamentos(codigo),
-  nombre_medicamento TEXT NOT NULL,                -- copia al momento de la compra
-  cantidad           INTEGER NOT NULL CHECK (cantidad BETWEEN 1 AND 20),
-  precio_unitario    INTEGER NOT NULL,             -- copia del precio al confirmar
-  total              INTEGER NOT NULL,             -- cantidad × precio, calculado en servidor
+  total              INTEGER NOT NULL,             -- suma de los subtotales de sus ítems, calculado en servidor
   estado             TEXT NOT NULL DEFAULT 'Solicitud creada' CHECK (estado IN (
     'Solicitud creada', 'En cotización', 'Validación de pago', 'En preparación',
     'Pedido en ruta', 'Entregado', 'No entregado', 'Listo para retirar',
@@ -73,6 +69,17 @@ CREATE TABLE sesiones (
   vecino_id     INTEGER NOT NULL REFERENCES vecinos(id),
   vence_en      TEXT NOT NULL                      -- ISO 8601
 );
+
+-- US-16: un pedido tiene uno o más ítems (un medicamento por ítem).
+CREATE TABLE pedido_items (
+  numero_pedido      TEXT NOT NULL REFERENCES pedidos(numero_pedido),
+  codigo_medicamento TEXT NOT NULL REFERENCES medicamentos(codigo),
+  nombre_medicamento TEXT NOT NULL,                -- copia al momento de la compra
+  cantidad           INTEGER NOT NULL CHECK (cantidad BETWEEN 1 AND 20),
+  precio_unitario    INTEGER NOT NULL,             -- copia del precio al confirmar
+  subtotal           INTEGER NOT NULL,             -- cantidad × precio, calculado en servidor
+  PRIMARY KEY (numero_pedido, codigo_medicamento) -- un medicamento una sola vez por pedido
+);
 ```
 
 Los 9 estados son los que usa hoy la Farmacia Comunitaria (respuestas del sponsor). En el Sprint 1 solo se usa `Solicitud creada`.
@@ -85,8 +92,8 @@ Semilla: `backend/seed/medicamentos_semilla.csv`, 34 filas. Sin stock: MED-014, 
 |---|---|---|---|
 | `GET /api/health` | — | — | `200 { ok: true }` |
 | `GET /api/medicamentos?q=` | US-02 | `q` con al menos 2 letras | `200 { resultados: [...] }` · si la lista está vacía agrega `mensaje: "No encontramos ese medicamento…"` · `400` si `q` es muy corto |
-| `POST /api/pedidos` | US-15 | `{ codigo, cantidad, alias? }` (+ cookie de sesión opcional, US-17) | `201 { pedido }` · `404 no_existe` · `400 cantidad_invalida` · `409 sin_stock` |
-| `GET /api/mis-pedidos` | US-17 | cookie `farmacia_sesion` | `200 { pedidos: [...] }` (más reciente primero) · `401 { motivo: "sin_sesion", mensaje }` |
+| `POST /api/pedidos` | US-15, US-16 | un medicamento: `{ codigo, cantidad, alias? }` · carrito: `{ items: [{ codigo, cantidad }], alias? }` (+ cookie de sesión opcional, US-17) | `201 { pedido }` · `404 no_existe` · `400 cantidad_invalida` · `400 carrito_vacio` · `400 carrito_invalido` · `400 demasiados_items` · `409 sin_stock` |
+| `GET /api/mis-pedidos` | US-17 | cookie `farmacia_sesion` | `200 { pedidos: [...] }` (más reciente primero, mismo formato que el pedido de `POST /api/pedidos`, con sus `items`) · `401 { motivo: "sin_sesion", mensaje }` |
 | `POST /api/sesion/qr` | US-17 | — | `201 { modo, qr, enlace, venceEn }` + cookie `farmacia_ingreso` · `502 { motivo: "proveedor_no_disponible", mensaje }` |
 | `GET /api/sesion/qr` | US-17 | cookie `farmacia_ingreso` | `200 { estado }`: `pendiente` (+ `venceEn`), `vencido`, `rechazado` o `sin_intento` (+ `mensaje`), o `aprobado` (+ `vecino: { nombre }` y cookie `farmacia_sesion`) |
 | `POST /api/sesion/qr/simular` | US-17 | cookie `farmacia_ingreso` | Solo con el proveedor simulado: `200 { ok: true }` · `409 { motivo: "intento_invalido", mensaje }` · `404` con el proveedor real |
@@ -96,7 +103,7 @@ Semilla: `backend/seed/medicamentos_semilla.csv`, 34 filas. Sin stock: MED-014, 
 | `GET /api/backoffice/medicamentos` | US-13 | header `x-backoffice-token` | `200 { medicamentos: [...] }` · `401 { motivo, mensaje }` |
 | `PUT /api/backoffice/medicamentos/:codigo` | US-13 | `{ precioUnitario?, stock?, version }` + header (`version` obligatoria, #12) | `200 { medicamento }` · `400 { motivo, mensaje, errores: { campo: motivo } }` · `401 { motivo, mensaje }` · `404 no_existe` · `409 { motivo: "version_cambiada", mensaje }` si la versión cambió |
 
-Cada resultado de búsqueda devuelve: `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible`. El pedido devuelve: `numeroPedido, medicamento, cantidad, precioUnitario, total, estado, fechaCreacion`.
+Cada resultado de búsqueda devuelve: `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible`. El pedido devuelve: `numeroPedido, items, total, estado, fechaCreacion`, donde cada ítem trae `codigo, medicamento, cantidad, precioUnitario, subtotal`. Si el pedido tiene **un solo** ítem, también trae `medicamento, cantidad, precioUnitario` (los campos de US-15, para quien ya los lee); con varios medicamentos esos tres campos no vienen.
 
 Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para la vecina. Ejemplo: `"Este medicamento ya no tiene stock disponible."`
 
@@ -124,13 +131,21 @@ Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para 
 - Un cambio válido sube `version` en 1 y responde `200 { medicamento }` con `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible, version`.
 - En cualquier endpoint, un error del cliente que detecta el servidor responde `{ motivo: "solicitud_invalida", mensaje }` con su código: `400` (JSON mal formado o dirección mal codificada), `413` (cuerpo demasiado grande) o `415` (codificación de caracteres no soportada). Un fallo interno real responde `500 { motivo: "error_interno", mensaje }`.
 
+**Detalle del carrito, `POST /api/pedidos` con `items` (US-16, #42):**
+
+- Un solo pedido para todos los medicamentos del carrito. El precio, el subtotal de cada ítem y el total los calcula siempre el servidor: cualquier `precioUnitario`, `subtotal` o `total` que mande el cliente se ignora.
+- Cada ítem tiene `cantidad` entera de 1 a 20 y un `codigo`. Si el mismo `codigo` viene repetido, se junta en un solo ítem (y la suma también debe ser de 1 a 20). El máximo de 10 cuenta medicamentos **distintos**, después de juntar los repetidos. Si `items` falta o es `null`, es la compra simple de un solo medicamento.
+- `items` vacío: `400 carrito_vacio`. `items` que no es una lista, o un ítem que no es un objeto: `400 carrito_invalido`. Más de 10: `400 demasiados_items`. Cantidad inválida en cualquier ítem: `400 cantidad_invalida`. Algún código fuera del catálogo (o desactivado): `404 { motivo: "no_existe", mensaje, noDisponibles: [{ codigo }] }` con todos los que faltan, para que la pantalla marque cuáles quitar. En todos esos casos no se descuenta nada.
+- Todo o nada: si algún ítem no tiene stock suficiente responde `409 { motivo: "sin_stock", mensaje, faltantes: [{ codigo, medicamento, stockDisponible }] }`. El `mensaje` nombra cada medicamento que no alcanza y dice que no se creó ningún pedido. No se crea el pedido y el stock de todos los ítems queda sin cambios.
+- La compra de un solo medicamento (`{ codigo, cantidad }`) mantiene sus mensajes de US-15 y no trae `faltantes`.
+
 **Detalle del ingreso con Neuro-Access (US-17, #46):**
 
 - Se usa el Quick Login de TAG en **modo back-end** (<https://lab.tagroot.io/QuickLogin.md>). `POST /api/sesion/qr` crea un intento con dos valores aleatorios de un solo uso: la **llave**, que va solo a la cookie httpOnly `farmacia_ingreso` del navegador, y el **secreto**, que se envía al Neuron como `sessionId` y nunca llega al navegador. Luego el backend registra el callback en el Neuron (`POST https://<neuron>/QuickLogin { service, sessionId }`) y le pide el QR en base64. El front no carga scripts del Neuron.
 - El vecino escanea el QR con Neuro-Access y aprueba. El Neuron hace `POST /api/sesion/callback` (servidor a servidor, por HTTPS) con la identidad. Se acepta solo si el `SessionId` corresponde a un intento pendiente y no vencido, `State` es `Approved`, trae `Id` y su validez (`To`) no ha vencido. Si la identidad no sirve, el intento queda `rechazado`. Si el secreto no existe, ya se usó o venció: `409` sin cambios.
 - De la identidad solo se guardan `Id` y el nombre de pila (`Properties.FIRST`). El resto (RUT/PNR, correo, firmas, adjuntos) se descarta, y el cuerpo del callback nunca se escribe en logs.
 - El front consulta `GET /api/sesion/qr` cada pocos segundos. Al encontrar el intento aprobado, lo canjea (una sola vez) por una sesión de 8 horas en la cookie httpOnly `farmacia_sesion`; el token nunca va en el cuerpo. El código vence a los 5 minutos.
-- Comprar **no** exige sesión: sin sesión, `POST /api/pedidos` funciona igual que en US-15. Con sesión, el pedido guarda `vecino_id` tomado de la cookie, nunca del cuerpo.
+- Comprar **no** exige sesión: sin sesión, `POST /api/pedidos` (un medicamento o carrito) funciona igual. Con sesión, el pedido guarda `vecino_id` tomado de la cookie, nunca del cuerpo, y aparece en `GET /api/mis-pedidos` con todos sus ítems.
 - Proveedor: `IDENTIDAD_PROVEEDOR=neuron` usa el Neuron `NEURON_DOMINIO` (por defecto `lab.tagroot.io`) y necesita `URL_PUBLICA_API` con `https://` (túnel). Con cualquier otro valor se usa el proveedor **simulado**: no hay QR y `POST /api/sesion/qr/simular` aprueba con la vecina ficticia «Rosa».
 
 ## 4. Concurrencia (compra)
@@ -138,25 +153,38 @@ Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para 
 La condición de stock va **dentro del mismo UPDATE**. SQLite ejecuta cada sentencia de forma atómica, así que dos compras de la última unidad nunca pueden confirmarse ambas:
 
 ```js
-const confirmarPedido = db.transaction(({ codigo, cantidad, alias }) => {
-  const med = db.prepare(
-    'SELECT * FROM medicamentos WHERE codigo = ? AND activo = 1'
-  ).get(codigo);
-  if (!med) return { ok: false, motivo: 'no_existe' };
+// items: [{ codigo, cantidad }], sin códigos repetidos
+const confirmarPedido = db.transaction(({ items, alias }) => {
+  const meds = [];
+  const inexistentes = [];
+  for (const { codigo, cantidad } of items) {
+    const med = db.prepare(
+      'SELECT * FROM medicamentos WHERE codigo = ? AND activo = 1'
+    ).get(codigo);
+    if (!med) inexistentes.push(codigo);
+    else meds.push({ med, cantidad });
+  }
+  // todavía no se escribió nada: se informan todos los que no existen
+  if (inexistentes.length > 0) return { ok: false, motivo: 'no_existe', codigos: inexistentes };
 
-  const r = db.prepare(
-    'UPDATE medicamentos SET stock = stock - ?, version = version + 1 ' +
-    'WHERE codigo = ? AND stock >= ?'
-  ).run(cantidad, codigo, cantidad);
-  if (r.changes === 0) return { ok: false, motivo: 'sin_stock' };
+  const faltantes = [];
+  for (const { med, cantidad } of meds) {
+    const r = db.prepare(
+      'UPDATE medicamentos SET stock = stock - ?, version = version + 1 ' +
+      'WHERE codigo = ? AND stock >= ?'
+    ).run(cantidad, med.codigo, cantidad);
+    if (r.changes === 0) faltantes.push(med.codigo);
+  }
+  // Un solo ítem sin stock anula todo el carrito: al lanzar, SQLite revierte los descuentos anteriores.
+  if (faltantes.length > 0) throw new CompraRechazada({ ok: false, motivo: 'sin_stock', faltantes });
 
-  const pedido = { /* numero, total = cantidad * med.precio_unitario, estado inicial */ };
-  db.prepare('INSERT INTO pedidos (...) VALUES (...)').run(/* ... */);
+  // INSERT del pedido (total = suma de cantidad × med.precio_unitario) y de cada ítem en pedido_items
   return { ok: true, pedido };
 });
+// Se ejecuta con confirmarPedido.immediate(...) (BEGIN IMMEDIATE) y se atrapa CompraRechazada afuera.
 ```
 
-Si el `INSERT` falla, la transacción revierte también el descuento de stock.
+Si un `INSERT` falla, o algún ítem no alcanza, la transacción revierte **todos** los descuentos de stock: nunca queda un carrito descontado a medias.
 
 ## 5. Backoffice sin pisar ventas (issue #12)
 

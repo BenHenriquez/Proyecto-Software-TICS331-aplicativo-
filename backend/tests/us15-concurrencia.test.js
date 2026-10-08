@@ -20,7 +20,7 @@ let rutaDb;
 let db;
 
 const stock = (codigo) => db.prepare('SELECT stock FROM medicamentos WHERE codigo = ?').get(codigo).stock;
-const pedidosDe = (codigo) => db.prepare('SELECT cantidad FROM pedidos WHERE codigo_medicamento = ?').all(codigo);
+const pedidosDe = (codigo) => db.prepare('SELECT cantidad FROM pedido_items WHERE codigo_medicamento = ?').all(codigo);
 
 // Base en archivo (no :memory:) para que varios procesos compartan los mismos datos.
 beforeEach(() => {

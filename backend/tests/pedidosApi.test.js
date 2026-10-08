@@ -22,7 +22,7 @@ describe('POST /api/pedidos', () => {
 
     expect(res.status).toBe(201);
     expect(Object.keys(res.body.pedido).sort()).toEqual(
-      ['cantidad', 'estado', 'fechaCreacion', 'medicamento', 'numeroPedido', 'precioUnitario', 'total'].sort()
+      ['cantidad', 'estado', 'fechaCreacion', 'items', 'medicamento', 'numeroPedido', 'precioUnitario', 'total'].sort()
     );
     expect(res.body.pedido).toMatchObject({
       medicamento: 'Amlodipino 5 mg',

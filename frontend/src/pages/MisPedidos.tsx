@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ErrorApi, ErrorSinSesion, listarMisPedidos, type Pedido } from '../lib/api';
+import { ErrorApi, ErrorSinSesion, listarMisPedidos, type PedidoCarrito } from '../lib/api';
 import { formatoPesos } from '../lib/formato';
 import { useSesion } from '../lib/sesion';
 import './Ingresar.css';
 
 // #48 Mis pedidos (US-17, #43): los pedidos confirmados con la sesión iniciada, del más reciente al
-// más antiguo. No es un carrito (eso es US-16): solo permite revisarlos.
+// más antiguo, cada uno con todos sus medicamentos (un pedido del carrito de US-16 puede tener varios).
 type Estado =
   | { tipo: 'cargando' }
   | { tipo: 'sin-sesion'; mensaje: string }
   | { tipo: 'error'; mensaje: string }
-  | { tipo: 'listo'; pedidos: Pedido[] };
+  | { tipo: 'listo'; pedidos: PedidoCarrito[] };
 
 const MENSAJE_SIN_SESION = 'Para ver tus pedidos, primero ingresa con tu app Neuro-Access.';
 const unidades = (n: number) => `${n} ${n === 1 ? 'unidad' : 'unidades'}`;
@@ -77,12 +77,16 @@ export default function MisPedidos() {
                 <h2 id={`pedido-${p.numeroPedido}`}>Pedido {p.numeroPedido}</h2>
                 <dl>
                   <div>
-                    <dt>Medicamento</dt>
-                    <dd>{p.medicamento}</dd>
-                  </div>
-                  <div>
-                    <dt>Cantidad</dt>
-                    <dd>{unidades(p.cantidad)}</dd>
+                    <dt>{p.items.length === 1 ? 'Medicamento' : 'Medicamentos'}</dt>
+                    <dd>
+                      <ul className="mis-pedidos__items">
+                        {p.items.map((item) => (
+                          <li key={item.codigo}>
+                            {item.medicamento} · {unidades(item.cantidad)}
+                          </li>
+                        ))}
+                      </ul>
+                    </dd>
                   </div>
                   <div>
                     <dt>Total</dt>

@@ -28,6 +28,7 @@ function mostrar() {
 
 const pedido = {
   numeroPedido: 'P-ABC234',
+  items: [{ codigo: 'MED-001', medicamento: 'Losartán 50 mg', cantidad: 2, precioUnitario: 1990, subtotal: 3980 }],
   medicamento: 'Losartán 50 mg',
   cantidad: 2,
   precioUnitario: 1990,
@@ -42,11 +43,31 @@ describe('Mis pedidos', () => {
     mostrar();
 
     const tarjeta = await screen.findByRole('article', { name: 'Pedido P-ABC234' });
-    expect(within(tarjeta).getByText('Losartán 50 mg')).toBeTruthy();
-    expect(within(tarjeta).getByText('2 unidades')).toBeTruthy();
+    expect(within(tarjeta).getByText('Losartán 50 mg · 2 unidades')).toBeTruthy();
     expect(within(tarjeta).getByText('$3.980')).toBeTruthy();
     expect(within(tarjeta).getByText('Solicitud creada')).toBeTruthy();
     expect(fetchFalso).toHaveBeenCalledWith('/api/mis-pedidos', { method: 'GET' });
+  });
+
+  it('un pedido del carrito muestra todos sus medicamentos y el total', async () => {
+    const delCarrito = {
+      numeroPedido: 'P-CAR789',
+      items: [
+        { codigo: 'MED-001', medicamento: 'Losartán 50 mg', cantidad: 1, precioUnitario: 1990, subtotal: 1990 },
+        { codigo: 'MED-003', medicamento: 'Amlodipino 5 mg', cantidad: 2, precioUnitario: 1490, subtotal: 2980 },
+      ],
+      total: 4970,
+      estado: 'Solicitud creada',
+      fechaCreacion: '2026-10-08T16:00:00.000Z',
+    };
+    fetchFalso.mockReturnValue(responder(200, { pedidos: [delCarrito] }));
+    mostrar();
+
+    const tarjeta = await screen.findByRole('article', { name: 'Pedido P-CAR789' });
+    expect(within(tarjeta).getByText('Medicamentos')).toBeTruthy();
+    expect(within(tarjeta).getByText('Losartán 50 mg · 1 unidad')).toBeTruthy();
+    expect(within(tarjeta).getByText('Amlodipino 5 mg · 2 unidades')).toBeTruthy();
+    expect(within(tarjeta).getByText('$4.970')).toBeTruthy();
   });
 
   it('sin sesión pide ingresar con Neuro-Access, con un enlace a "Ingresar"', async () => {

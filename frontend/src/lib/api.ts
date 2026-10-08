@@ -207,6 +207,115 @@ export async function confirmarPedido(codigo: string, cantidad: number): Promise
   throw new ErrorApi(MENSAJE_PEDIDO_GENERICO);
 }
 
+// --- Carrito (US-16, #42) ----------------------------------------------------------------------
+// Un solo pedido con todos los medicamentos del carrito: POST /api/pedidos con { items }.
+export interface ItemPedido {
+  codigo: string;
+  medicamento: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+}
+
+export interface PedidoCarrito {
+  numeroPedido: string;
+  items: ItemPedido[];
+  total: number;
+  estado: string;
+  fechaCreacion: string;
+}
+
+// Un medicamento del carrito que no alcanzó (409 `sin_stock`).
+export interface FaltanteCarrito {
+  codigo: string;
+  medicamento: string;
+  stockDisponible: number;
+}
+
+// El backend rechazó el carrito: NO se creó ningún pedido y el stock de todos quedó igual.
+// Si fue por falta de stock trae qué medicamentos no alcanzaron.
+export class ErrorCarritoRechazado extends ErrorPedidoRechazado {
+  readonly faltantes: FaltanteCarrito[];
+  // Códigos de medicamentos que ya no están en el catálogo (404): la pantalla los marca para quitarlos.
+  readonly noDisponibles: string[];
+  constructor(mensaje: string, faltantes: FaltanteCarrito[], noDisponibles: string[] = []) {
+    super(mensaje);
+    this.faltantes = faltantes;
+    this.noDisponibles = noDisponibles;
+  }
+}
+
+function esItemPedido(valor: unknown): valor is ItemPedido {
+  if (valor === null || typeof valor !== 'object') return false;
+  const i = valor as Record<string, unknown>;
+  return (
+    typeof i.codigo === 'string' &&
+    typeof i.medicamento === 'string' &&
+    Number.isFinite(i.cantidad) &&
+    Number.isFinite(i.precioUnitario) &&
+    Number.isFinite(i.subtotal)
+  );
+}
+
+function esPedidoCarrito(valor: unknown): valor is PedidoCarrito {
+  if (valor === null || typeof valor !== 'object') return false;
+  const p = valor as Record<string, unknown>;
+  return (
+    typeof p.numeroPedido === 'string' &&
+    p.numeroPedido !== '' &&
+    Array.isArray(p.items) &&
+    p.items.length > 0 &&
+    p.items.every(esItemPedido) &&
+    Number.isFinite(p.total) &&
+    typeof p.estado === 'string'
+  );
+}
+
+function soloFaltantes(valor: unknown): FaltanteCarrito[] {
+  if (!Array.isArray(valor)) return [];
+  return valor.filter(
+    (f): f is FaltanteCarrito =>
+      f !== null &&
+      typeof f === 'object' &&
+      typeof (f as FaltanteCarrito).codigo === 'string' &&
+      typeof (f as FaltanteCarrito).medicamento === 'string' &&
+      Number.isFinite((f as FaltanteCarrito).stockDisponible),
+  );
+}
+
+function soloCodigos(valor: unknown): string[] {
+  if (!Array.isArray(valor)) return [];
+  return valor.flatMap((n) =>
+    n !== null && typeof n === 'object' && typeof (n as { codigo?: unknown }).codigo === 'string'
+      ? [(n as { codigo: string }).codigo]
+      : [],
+  );
+}
+
+// Solo se envían códigos y cantidades: nunca precios ni totales (regla 1).
+export async function confirmarCarrito(items: { codigo: string; cantidad: number }[]): Promise<PedidoCarrito> {
+  let respuesta: Response;
+  try {
+    respuesta = await fetch('/api/pedidos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: items.map(({ codigo, cantidad }) => ({ codigo, cantidad })) }),
+    });
+  } catch {
+    throw new ErrorApi(MENSAJE_SIN_CONEXION_PEDIDO);
+  }
+
+  const cuerpo = await respuesta.json().catch(() => null);
+  if (respuesta.ok) {
+    if (esPedidoCarrito(cuerpo?.pedido)) return cuerpo.pedido;
+    throw new ErrorPedidoIncierto(MENSAJE_PEDIDO_INCIERTO);
+  }
+  if (respuesta.status < 500 && typeof cuerpo?.mensaje === 'string') {
+    throw new ErrorCarritoRechazado(cuerpo.mensaje, soloFaltantes(cuerpo?.faltantes), soloCodigos(cuerpo?.noDisponibles));
+  }
+  throw new ErrorApi(MENSAJE_PEDIDO_GENERICO);
+}
+
 // --- Ingreso con Neuro-Access y Mis pedidos (US-17, #47 y #48) --------------------------------------
 // La sesión vive en cookies httpOnly que pone el backend: el front nunca ve ni guarda tokens.
 
@@ -273,11 +382,12 @@ export async function cerrarSesion(): Promise<void> {
   await pedirJson('/api/sesion/cerrar', 'POST', MENSAJE_GENERICO);
 }
 
-export async function listarMisPedidos(): Promise<Pedido[]> {
+// Cada pedido trae sus ítems (US-16): con el carrito, un pedido puede tener varios medicamentos.
+export async function listarMisPedidos(): Promise<PedidoCarrito[]> {
   const cuerpo = (await pedirJson('/api/mis-pedidos', 'GET', MENSAJE_MIS_PEDIDOS_GENERICO)) as {
     pedidos?: unknown;
   } | null;
-  if (!cuerpo || !Array.isArray(cuerpo.pedidos) || !cuerpo.pedidos.every(esPedido)) {
+  if (!cuerpo || !Array.isArray(cuerpo.pedidos) || !cuerpo.pedidos.every(esPedidoCarrito)) {
     throw new ErrorApi(MENSAJE_MIS_PEDIDOS_GENERICO);
   }
   return cuerpo.pedidos;

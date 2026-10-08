@@ -115,6 +115,11 @@
   margin: 0;
 }
 
+.mis-pedidos__items {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
 /* Cabecera: saludo y botón Salir sobre el fondo primario */
 .cabecera__sesion {
   display: flex;

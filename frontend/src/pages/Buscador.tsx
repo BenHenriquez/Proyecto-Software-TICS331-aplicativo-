@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import ConfirmarPedido from '../components/ConfirmarPedido';
 import SelectorCantidad from '../components/SelectorCantidad';
 import TarjetaMedicamento from '../components/TarjetaMedicamento';
 import { buscarMedicamentos, ErrorApi, type Medicamento } from '../lib/api';
+import { CANTIDAD_MAXIMA_POR_MEDICAMENTO, MEDICAMENTOS_MAXIMOS, useCarritoOpcional } from '../lib/carrito';
 
 // US-02 Consultar medicamento (#1). #8: buscador y tarjetas de resultado. #9: mensaje claro sin
 // coincidencias y medicamentos sin stock sin opción de compra. Estados: inicial, cargando,
 // resultados, vacío y error. «Elegir cantidad» abre el selector de US-15 (#17) y «Continuar con el
-// pedido» abre la confirmación (#18).
+// pedido» abre la confirmación (#18). US-16 (#42): si la app tiene carrito, el selector también ofrece
+// «Agregar al carrito» y la búsqueda sigue donde estaba.
 type Estado =
   | { tipo: 'inicial' }
   | { tipo: 'cargando' }
@@ -31,6 +34,9 @@ export default function Buscador() {
   const [ocupado, setOcupado] = useState(false);
   // Tras refrescar la lista por un rechazo, el foco va a la lista de resultados.
   const [enfocarLista, setEnfocarLista] = useState(false);
+  // Aviso de «Agregar al carrito»; solo existe si la app tiene carrito.
+  const carrito = useCarritoOpcional();
+  const [avisoCarrito, setAvisoCarrito] = useState<{ texto: string; error: boolean } | null>(null);
 
   const peticion = useRef<AbortController | null>(null);
   const campo = useRef<HTMLInputElement>(null);
@@ -70,6 +76,7 @@ export default function Buscador() {
 
     setElegido(null);
     setCantidad(null);
+    setAvisoCarrito(null);
     setEstado({ tipo: 'cargando' });
     try {
       const { resultados, mensaje } = await buscarMedicamentos(texto.trim(), controlador.signal);
@@ -86,6 +93,28 @@ export default function Buscador() {
       setEstado({ tipo: 'error', mensaje });
       campo.current?.focus();
     }
+  }
+
+  // «Agregar al carrito»: se suma al carrito y se vuelve a los resultados para seguir eligiendo.
+  function agregarAlCarrito(cantidadElegida: number) {
+    if (!carrito || !elegido) return;
+    const { codigo, nombre, precioUnitario } = elegido;
+    const r = carrito.agregar({ codigo, nombre, precioUnitario }, cantidadElegida);
+    if (!r.ok) {
+      setAvisoCarrito({
+        texto: `Tu carrito ya tiene ${MEDICAMENTOS_MAXIMOS} medicamentos distintos. Haz tu pedido o quita alguno para agregar otro.`,
+        error: true,
+      });
+      return;
+    }
+    const unidades = r.cantidad === 1 ? '1 unidad' : `${r.cantidad} unidades`;
+    setAvisoCarrito({
+      texto: r.recortada
+        ? `Tu carrito permite hasta ${CANTIDAD_MAXIMA_POR_MEDICAMENTO} unidades de cada medicamento. Ahora tienes ${unidades} de ${nombre}.`
+        : `Agregaste ${nombre} a tu carrito. Ahora tienes ${unidades}.`,
+      error: false,
+    });
+    volver();
   }
 
   function volver() {
@@ -148,6 +177,20 @@ export default function Buscador() {
         {estado.tipo === 'resultados' && !elegido && textoCantidad(estado.resultados.length)}
       </p>
 
+      {/* Región viva del carrito: anuncia cada medicamento agregado. Solo existe si la app tiene carrito. */}
+      {carrito && (
+        <div className={avisoCarrito?.error ? 'aviso aviso--error' : avisoCarrito ? 'aviso' : undefined} role="status">
+          {avisoCarrito && (
+            <>
+              <p className="aviso__titulo">{avisoCarrito.texto}</p>
+              <p>
+                <Link to="/carrito">{`Ver mi carrito (${carrito.unidades} ${carrito.unidades === 1 ? 'unidad' : 'unidades'})`}</Link>
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       {estado.tipo === 'vacio' && (
         <div className="aviso" role="alert">
           <p className="aviso__titulo">{estado.mensaje}</p>
@@ -165,7 +208,11 @@ export default function Buscador() {
           <button type="button" className="boton-secundario" onClick={volver}>
             <span aria-hidden="true">← </span>Volver a los resultados
           </button>
-          <SelectorCantidad medicamento={elegido} onContinuar={setCantidad} />
+          <SelectorCantidad
+            medicamento={elegido}
+            onContinuar={setCantidad}
+            onAgregar={carrito ? agregarAlCarrito : undefined}
+          />
         </div>
       )}
 

@@ -211,6 +211,26 @@ describe('/api/sesion', () => {
       expect(res.status).toBe(401);
     });
 
+    it('un carrito (US-16) confirmado con sesión queda a su nombre con todos sus ítems', async () => {
+      const { navegador } = await conSesion();
+      const compra = await navegador.post('/api/pedidos').send({
+        items: [
+          { codigo: 'MED-001', cantidad: 1 },
+          { codigo: 'MED-003', cantidad: 2 },
+        ],
+      });
+      expect(compra.status).toBe(201);
+
+      const mis = await navegador.get('/api/mis-pedidos');
+      expect(mis.body.pedidos).toHaveLength(1);
+      expect(mis.body.pedidos[0].numeroPedido).toBe(compra.body.pedido.numeroPedido);
+      expect(mis.body.pedidos[0].items.map((i) => [i.codigo, i.cantidad])).toEqual([
+        ['MED-001', 1],
+        ['MED-003', 2],
+      ]);
+      expect(mis.body.pedidos[0].total).toBe(compra.body.pedido.total);
+    });
+
     it('el vecino del pedido sale de la sesión, nunca del cuerpo enviado', async () => {
       const res = await request(app).post('/api/pedidos').send({ codigo: 'MED-001', cantidad: 1, vecinoId: 1 });
       expect(res.status).toBe(201);

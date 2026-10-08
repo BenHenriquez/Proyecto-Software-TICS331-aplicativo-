@@ -135,7 +135,7 @@ describe('US-13 · Mantener stock (de punta a punta con la búsqueda de US-02)',
       const despues = await comprar('MED-001', 2);
 
       expect(despues.body.pedido).toMatchObject({ precioUnitario: 2500, total: 5000 });
-      const anterior = db.prepare('SELECT precio_unitario, total FROM pedidos WHERE numero_pedido = ?').get(antes.body.pedido.numeroPedido);
+      const anterior = db.prepare('SELECT precio_unitario, subtotal AS total FROM pedido_items WHERE numero_pedido = ?').get(antes.body.pedido.numeroPedido);
       expect(anterior).toEqual({ precio_unitario: 1990, total: 1990 });
     });
 
@@ -283,7 +283,7 @@ describe('US-13 · Actualización a la vez que varias vecinas compran (conexione
       const final = db.prepare('SELECT precio_unitario, stock, version FROM medicamentos WHERE codigo = ?').get('MED-001');
       expect(final).toEqual({ precio_unitario: 2500, stock: 114, version: 7 }); // 1 cambio + 6 ventas
       // Cada pedido quedó con el precio vigente cuando se compró, y su total cuadra
-      const pedidos = db.prepare('SELECT cantidad, precio_unitario, total FROM pedidos').all();
+      const pedidos = db.prepare('SELECT cantidad, precio_unitario, subtotal AS total FROM pedido_items').all();
       expect(pedidos).toHaveLength(6);
       for (const p of pedidos) {
         expect([1990, 2500]).toContain(p.precio_unitario);

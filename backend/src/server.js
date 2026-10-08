@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { config } from './config.js';
-import { abrirDb } from './repositories/db.js';
+import { abrirDb, tablasFaltantes } from './repositories/db.js';
 import { crearApp } from './app.js';
 import { crearProveedorNeuron } from './proveedores/identidadNeuron.js';
 import { crearProveedorSimulado } from './proveedores/identidadSimulada.js';
@@ -26,11 +26,17 @@ if (identidad.proveedor === 'neuron') {
 }
 
 const db = abrirDb(config.rutaDb);
-// US-17 agregó columnas y tablas: una base creada antes rompe la compra hasta volver a sembrarla.
-const columnasPedidos = db.prepare('PRAGMA table_info(pedidos)').all().map((c) => c.name);
-if (columnasPedidos.length > 0 && !columnasPedidos.includes('vecino_id')) {
-  console.warn('Aviso: la base es de una versión anterior (falta pedidos.vecino_id). Ejecuta "npm run seed" desde la raíz.');
+
+// Una base de una versión anterior haría fallar todas las compras: mejor decirlo claro y no arrancar.
+const faltantes = tablasFaltantes(db);
+if (faltantes.length > 0) {
+  console.error(
+    `La base de datos es de una versión anterior (faltan las tablas: ${faltantes.join(', ')}). ` +
+      'Ejecuta "npm run seed" desde la raíz para recrearla y vuelve a iniciar.',
+  );
+  process.exit(1);
 }
+
 const app = crearApp({ db, tokenBackoffice: config.tokenBackoffice, proveedorIdentidad });
 
 app.listen(config.puerto, () => {
