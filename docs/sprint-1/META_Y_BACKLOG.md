@@ -12,9 +12,9 @@ Se trabaja íntegramente con datos sintéticos. SAP, Tesorería y Webpay product
 
 | ID | Historia | Pts | Responsables | ¿DoR? | Estado al cierre |
 |---|---|---|---|---|---|
-| US-02 | Como vecina, quiero buscar un medicamento por nombre o principio activo para conocer su precio y disponibilidad. | 5 | Martín González + Vicente Pulgar | Sí | *(al cierre)* |
-| US-13 | Como funcionaria de backoffice, quiero actualizar precio y stock para que la información que ve la vecina sea correcta. | 5 | Benjamín Espinoza + Benjamín Henríquez | Sí | *(al cierre)* |
-| US-15 | Como vecina, quiero seleccionar un medicamento disponible, indicar cantidad y confirmar mi pedido para iniciar la compra sin ir presencialmente. | 8 | Vicente Concha + Martín González | Sí | *(al cierre)* |
+| US-02 | Como vecina, quiero buscar un medicamento por nombre o principio activo para conocer su precio y disponibilidad. | 5 | Martín González + Vicente Pulgar | Sí | **Done** · aceptada el 01/10/2026 |
+| US-13 | Como funcionaria de backoffice, quiero actualizar precio y stock para que la información que ve la vecina sea correcta. | 5 | Benjamín Espinoza + Benjamín Henríquez | Sí | **Done** · aceptada el 01/10/2026 |
+| US-15 | Como vecina, quiero seleccionar un medicamento disponible, indicar cantidad y confirmar mi pedido para iniciar la compra sin ir presencialmente. | 8 | Vicente Concha + Martín González | Sí | **Done** · aceptada el 01/10/2026 |
 | — | US-07 Accesibilidad con lector de pantalla — no comprometida | 8 | — | No (S2) | Backlog S2 |
 | — | US-01 Bot de WhatsApp — fuera del alcance de S1 | 5 | — | No | Won't |
 
@@ -22,6 +22,8 @@ Se trabaja íntegramente con datos sintéticos. SAP, Tesorería y Webpay product
 |---|---|
 | Capacidad | 90 h (5 personas × 6 h semanales × 3 semanas) |
 | Comprometido | 18 pts (5 + 5 + 8). US-15 en 8 pts es una estimación provisoria. |
+
+**Cierre del Sprint 1.** En la Sprint Review del 01/10/2026, el sponsor del proyecto, **Gino Pietro Bencini Muñoz** (Farmacia Comunitaria de Peñalolén), revisó y aceptó los entregables de US-02, US-13 y US-15. Consta en el *Acta de Revisión y Aceptación de Sprint* N°1, firmada digitalmente el 05/10/2026 por el sponsor y por el Product Owner del equipo, Benjamín Espinoza H. El acta se guarda fuera de este repositorio público (tiene firmas). Las tres historias quedaron en Done en el tablero (#1, #2 y #3).
 
 ## 1.3 Criterios de aceptación
 
