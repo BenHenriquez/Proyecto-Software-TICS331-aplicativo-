@@ -26,13 +26,17 @@ export function crearPedidosRepository(db) {
   const insertarPedido = db.prepare(`
     INSERT INTO pedidos
       (numero_pedido, codigo_medicamento, nombre_medicamento, cantidad,
-       precio_unitario, total, estado, fecha_creacion, alias_vecino)
+       precio_unitario, total, estado, fecha_creacion, alias_vecino, vecino_id)
     VALUES
       (@numero_pedido, @codigo_medicamento, @nombre_medicamento, @cantidad,
-       @precio_unitario, @total, @estado, @fecha_creacion, @alias_vecino)
+       @precio_unitario, @total, @estado, @fecha_creacion, @alias_vecino, @vecino_id)
   `);
+  // US-17 (#48): "Mis pedidos", del más reciente al más antiguo.
+  const pedidosDeVecino = db.prepare(
+    'SELECT * FROM pedidos WHERE vecino_id = ? ORDER BY fecha_creacion DESC, numero_pedido'
+  );
 
-  const confirmar = db.transaction(({ codigo, cantidad, alias = null }) => {
+  const confirmar = db.transaction(({ codigo, cantidad, alias = null, vecinoId = null }) => {
     const med = buscarMedicamento.get(codigo);
     if (!med) return { ok: false, motivo: 'no_existe' };
 
@@ -53,6 +57,7 @@ export function crearPedidosRepository(db) {
       estado: ESTADO_INICIAL,
       fecha_creacion: new Date().toISOString(),
       alias_vecino: alias,
+      vecino_id: vecinoId,
     };
     // Si el INSERT falla, la transacción revierte también el descuento de stock.
     insertarPedido.run(pedido);
@@ -68,6 +73,10 @@ export function crearPedidosRepository(db) {
 
     buscarPorNumero(numeroPedido) {
       return db.prepare('SELECT * FROM pedidos WHERE numero_pedido = ?').get(numeroPedido);
+    },
+
+    listarPorVecino(vecinoId) {
+      return pedidosDeVecino.all(vecinoId);
     },
   };
 }

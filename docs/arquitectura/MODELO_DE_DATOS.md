@@ -46,7 +46,32 @@ CREATE TABLE pedidos (
     'Pedido en ruta', 'Entregado', 'No entregado', 'Listo para retirar',
     'Retirado en farmacia')),
   fecha_creacion     TEXT NOT NULL,                -- ISO 8601
-  alias_vecino       TEXT                          -- solo alias ficticio, opcional
+  alias_vecino       TEXT,                         -- solo alias ficticio, opcional
+  vecino_id          INTEGER REFERENCES vecinos(id) -- US-17: solo si compró con sesión iniciada
+);
+
+-- US-17 Ingreso con Neuro-Access (#45). Sin RUT ni datos personales: solo el Id de la identidad
+-- y el nombre de pila para saludar. Los secretos y tokens se guardan como hash SHA-256.
+CREATE TABLE vecinos (
+  id            INTEGER PRIMARY KEY,
+  identidad_id  TEXT NOT NULL UNIQUE,              -- Id de la identidad legal (Neuro-Access) o "…@simulado"
+  nombre        TEXT NOT NULL,                     -- nombre de pila, para el saludo
+  creado_en     TEXT NOT NULL                      -- ISO 8601
+);
+
+CREATE TABLE intentos_ingreso (
+  llave_hash    TEXT PRIMARY KEY,                  -- llave del navegador (cookie httpOnly)
+  secreto_hash  TEXT NOT NULL UNIQUE,              -- sessionId enviado al Neuron; nunca va al navegador
+  estado        TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN (
+    'pendiente', 'aprobado', 'rechazado', 'usado')),
+  vecino_id     INTEGER REFERENCES vecinos(id),    -- se llena al aprobarse
+  vence_en      TEXT NOT NULL                      -- ISO 8601, 5 minutos después de crearse
+);
+
+CREATE TABLE sesiones (
+  token_hash    TEXT PRIMARY KEY,                  -- token de la cookie httpOnly
+  vecino_id     INTEGER NOT NULL REFERENCES vecinos(id),
+  vence_en      TEXT NOT NULL                      -- ISO 8601
 );
 ```
 
@@ -60,7 +85,14 @@ Semilla: `backend/seed/medicamentos_semilla.csv`, 34 filas. Sin stock: MED-014, 
 |---|---|---|---|
 | `GET /api/health` | — | — | `200 { ok: true }` |
 | `GET /api/medicamentos?q=` | US-02 | `q` con al menos 2 letras | `200 { resultados: [...] }` · si la lista está vacía agrega `mensaje: "No encontramos ese medicamento…"` · `400` si `q` es muy corto |
-| `POST /api/pedidos` | US-15 | `{ codigo, cantidad, alias? }` | `201 { pedido }` · `404 no_existe` · `400 cantidad_invalida` · `409 sin_stock` |
+| `POST /api/pedidos` | US-15 | `{ codigo, cantidad, alias? }` (+ cookie de sesión opcional, US-17) | `201 { pedido }` · `404 no_existe` · `400 cantidad_invalida` · `409 sin_stock` |
+| `GET /api/mis-pedidos` | US-17 | cookie `farmacia_sesion` | `200 { pedidos: [...] }` (más reciente primero) · `401 { motivo: "sin_sesion", mensaje }` |
+| `POST /api/sesion/qr` | US-17 | — | `201 { modo, qr, enlace, venceEn }` + cookie `farmacia_ingreso` · `502 { motivo: "proveedor_no_disponible", mensaje }` |
+| `GET /api/sesion/qr` | US-17 | cookie `farmacia_ingreso` | `200 { estado }`: `pendiente` (+ `venceEn`), `vencido`, `rechazado` o `sin_intento` (+ `mensaje`), o `aprobado` (+ `vecino: { nombre }` y cookie `farmacia_sesion`) |
+| `POST /api/sesion/qr/simular` | US-17 | cookie `farmacia_ingreso` | Solo con el proveedor simulado: `200 { ok: true }` · `409 { motivo: "intento_invalido", mensaje }` · `404` con el proveedor real |
+| `POST /api/sesion/callback` | US-17 | JSON de identidad del Neuron | `200 null` · `400 { motivo: "datos_invalidos" }` · `409 { motivo: "intento_invalido" \| "identidad_no_aprobada" }` |
+| `GET /api/sesion` | US-17 | cookie `farmacia_sesion` | `200 { vecino: { nombre } \| null }` |
+| `POST /api/sesion/cerrar` | US-17 | cookie `farmacia_sesion` | `200 { ok: true }` y borra la cookie |
 | `GET /api/backoffice/medicamentos` | US-13 | header `x-backoffice-token` | `200 { medicamentos: [...] }` · `401 { motivo, mensaje }` |
 | `PUT /api/backoffice/medicamentos/:codigo` | US-13 | `{ precioUnitario?, stock?, version }` + header (`version` obligatoria, #12) | `200 { medicamento }` · `400 { motivo, mensaje, errores: { campo: motivo } }` · `401 { motivo, mensaje }` · `404 no_existe` · `409 { motivo: "version_cambiada", mensaje }` si la versión cambió |
 
@@ -91,6 +123,15 @@ Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para 
 - Si la `version` enviada no es la vigente (una venta u otra edición cambió el medicamento después de que el panel lo leyó): `409 { motivo: "version_cambiada", mensaje: "El stock cambió mientras editabas. Recarga e intenta de nuevo." }` y no se guarda nada, tampoco el precio. Aplica a cualquier cambio, también al de solo precio.
 - Un cambio válido sube `version` en 1 y responde `200 { medicamento }` con `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible, version`.
 - En cualquier endpoint, un error del cliente que detecta el servidor responde `{ motivo: "solicitud_invalida", mensaje }` con su código: `400` (JSON mal formado o dirección mal codificada), `413` (cuerpo demasiado grande) o `415` (codificación de caracteres no soportada). Un fallo interno real responde `500 { motivo: "error_interno", mensaje }`.
+
+**Detalle del ingreso con Neuro-Access (US-17, #46):**
+
+- Se usa el Quick Login de TAG en **modo back-end** (<https://lab.tagroot.io/QuickLogin.md>). `POST /api/sesion/qr` crea un intento con dos valores aleatorios de un solo uso: la **llave**, que va solo a la cookie httpOnly `farmacia_ingreso` del navegador, y el **secreto**, que se envía al Neuron como `sessionId` y nunca llega al navegador. Luego el backend registra el callback en el Neuron (`POST https://<neuron>/QuickLogin { service, sessionId }`) y le pide el QR en base64. El front no carga scripts del Neuron.
+- El vecino escanea el QR con Neuro-Access y aprueba. El Neuron hace `POST /api/sesion/callback` (servidor a servidor, por HTTPS) con la identidad. Se acepta solo si el `SessionId` corresponde a un intento pendiente y no vencido, `State` es `Approved`, trae `Id` y su validez (`To`) no ha vencido. Si la identidad no sirve, el intento queda `rechazado`. Si el secreto no existe, ya se usó o venció: `409` sin cambios.
+- De la identidad solo se guardan `Id` y el nombre de pila (`Properties.FIRST`). El resto (RUT/PNR, correo, firmas, adjuntos) se descarta, y el cuerpo del callback nunca se escribe en logs.
+- El front consulta `GET /api/sesion/qr` cada pocos segundos. Al encontrar el intento aprobado, lo canjea (una sola vez) por una sesión de 8 horas en la cookie httpOnly `farmacia_sesion`; el token nunca va en el cuerpo. El código vence a los 5 minutos.
+- Comprar **no** exige sesión: sin sesión, `POST /api/pedidos` funciona igual que en US-15. Con sesión, el pedido guarda `vecino_id` tomado de la cookie, nunca del cuerpo.
+- Proveedor: `IDENTIDAD_PROVEEDOR=neuron` usa el Neuron `NEURON_DOMINIO` (por defecto `lab.tagroot.io`) y necesita `URL_PUBLICA_API` con `https://` (túnel). Con cualquier otro valor se usa el proveedor **simulado**: no hay QR y `POST /api/sesion/qr/simular` aprueba con la vecina ficticia «Rosa».
 
 ## 4. Concurrencia (compra)
 

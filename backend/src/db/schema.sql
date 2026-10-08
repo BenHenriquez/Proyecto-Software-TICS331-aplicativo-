@@ -24,5 +24,30 @@ CREATE TABLE pedidos (
     'Pedido en ruta', 'Entregado', 'No entregado', 'Listo para retirar',
     'Retirado en farmacia')),
   fecha_creacion     TEXT NOT NULL,                -- ISO 8601
-  alias_vecino       TEXT                          -- solo alias ficticio, opcional
+  alias_vecino       TEXT,                         -- solo alias ficticio, opcional
+  vecino_id          INTEGER REFERENCES vecinos(id) -- US-17: solo si compró con sesión iniciada
+);
+
+-- US-17 Ingreso con Neuro-Access (#45). Sin RUT ni datos personales: solo el Id de la identidad
+-- y el nombre de pila para saludar. Los secretos y tokens se guardan como hash SHA-256.
+CREATE TABLE vecinos (
+  id            INTEGER PRIMARY KEY,
+  identidad_id  TEXT NOT NULL UNIQUE,              -- Id de la identidad legal (Neuro-Access) o "…@simulado"
+  nombre        TEXT NOT NULL,                     -- nombre de pila, para el saludo
+  creado_en     TEXT NOT NULL                      -- ISO 8601
+);
+
+CREATE TABLE intentos_ingreso (
+  llave_hash    TEXT PRIMARY KEY,                  -- llave del navegador (cookie httpOnly)
+  secreto_hash  TEXT NOT NULL UNIQUE,              -- sessionId enviado al Neuron; nunca va al navegador
+  estado        TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN (
+    'pendiente', 'aprobado', 'rechazado', 'usado')),
+  vecino_id     INTEGER REFERENCES vecinos(id),    -- se llena al aprobarse
+  vence_en      TEXT NOT NULL                      -- ISO 8601, 5 minutos después de crearse
+);
+
+CREATE TABLE sesiones (
+  token_hash    TEXT PRIMARY KEY,                  -- token de la cookie httpOnly
+  vecino_id     INTEGER NOT NULL REFERENCES vecinos(id),
+  vence_en      TEXT NOT NULL                      -- ISO 8601
 );
