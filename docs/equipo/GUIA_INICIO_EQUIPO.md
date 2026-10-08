@@ -75,6 +75,18 @@ Para Max y Matías, con copia a Romina Torres:
 8. Correr en vivo el test de concurrencia.
 9. Mostrar tablero, UML y qué quedó pendiente.
 
+## Definition of Ready
+
+Una historia entra a un sprint solo si cumple todo esto. Si falta algo, vuelve al backlog.
+
+1. **Historia** en formato *Como… quiero… para…*, con el actor claro.
+2. **Criterios Gherkin** en el issue padre: al menos un escenario feliz y uno de error (Dado / Cuando / Entonces).
+3. **Estimada** en puntos (1, 2, 3, 5, 8 o 13) en el campo Estimate del tablero. Una historia de 13 se divide antes de empezar.
+4. **Prioridad MoSCoW** en el issue y en `docs/producto/PRODUCT_BACKLOG.md`.
+5. **Sub-issues** ligadas a la historia, cada una con una línea de qué entrega.
+6. **Dependencias y datos** identificados: solo datos sintéticos y, si cambia el esquema, la nota de que hay que actualizar `MODELO_DE_DATOS.md` y `docs/uml/`.
+7. **Sprint y responsables** asignados, y dentro del alcance acordado con el PO.
+
 ## Definition of Done
 
 Criterios ejecutados en vivo · merge por PR revisado · sin secretos ni datos reales · UML con los mismos nombres del código · README levanta en máquina limpia · tarjeta en Done · aceptada por el PO municipal. "Casi anda" vuelve al backlog.
