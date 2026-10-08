@@ -16,10 +16,27 @@ describe('tablasFaltantes', () => {
       CREATE TABLE medicamentos (codigo TEXT PRIMARY KEY);
       CREATE TABLE pedidos (numero_pedido TEXT PRIMARY KEY, codigo_medicamento TEXT, cantidad INTEGER);
     `);
-    expect(tablasFaltantes(db)).toEqual(['pedido_items']);
+    expect(tablasFaltantes(db)).toEqual(['pedido_items', 'vecinos', 'intentos_ingreso', 'sesiones']);
+  });
+
+  it('una base de antes de US-17 (sin las tablas del ingreso) la detecta por nombre', () => {
+    const db = abrirDb(':memory:');
+    db.exec(`
+      CREATE TABLE medicamentos (codigo TEXT PRIMARY KEY);
+      CREATE TABLE pedidos (numero_pedido TEXT PRIMARY KEY, total INTEGER);
+      CREATE TABLE pedido_items (numero_pedido TEXT, codigo_medicamento TEXT);
+    `);
+    expect(tablasFaltantes(db)).toEqual(['vecinos', 'intentos_ingreso', 'sesiones']);
   });
 
   it('una base vacía las informa todas', () => {
-    expect(tablasFaltantes(abrirDb(':memory:'))).toEqual(['medicamentos', 'pedidos', 'pedido_items']);
+    expect(tablasFaltantes(abrirDb(':memory:'))).toEqual([
+      'medicamentos',
+      'pedidos',
+      'pedido_items',
+      'vecinos',
+      'intentos_ingreso',
+      'sesiones',
+    ]);
   });
 });

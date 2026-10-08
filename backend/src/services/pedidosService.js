@@ -97,7 +97,8 @@ function prepararItems(items) {
 
 export function crearPedidosService(pedidosRepository) {
   return {
-    confirmarPedido({ codigo, cantidad, items, alias } = {}) {
+    // `vecinoId` viene de la sesión (US-17), nunca del cuerpo: sin sesión, el pedido queda anónimo.
+    confirmarPedido({ codigo, cantidad, items, alias, vecinoId = null } = {}) {
       // Sin `items` (o con `items: null`) es la compra simple de US-15, igual que antes.
       const esCarrito = items != null;
       if (esCarrito) {
@@ -112,7 +113,11 @@ export function crearPedidosService(pedidosRepository) {
 
       if (preparado.items.length > ITEMS_MAXIMOS) return rechazo('demasiados_items');
 
-      const r = pedidosRepository.confirmarPedido({ items: preparado.items, alias: normalizarAlias(alias) });
+      const r = pedidosRepository.confirmarPedido({
+        items: preparado.items,
+        alias: normalizarAlias(alias),
+        vecinoId,
+      });
       if (r.ok) return { ok: true, pedido: aVista(r.pedido) };
 
       if (r.motivo === 'sin_stock') {
@@ -128,6 +133,11 @@ export function crearPedidosService(pedidosRepository) {
       }
       if (!esCarrito) return rechazo(r.motivo);
       return { ...rechazo('no_existe', MENSAJES.no_existe_en_carrito), noDisponibles: r.codigos.map((codigo) => ({ codigo })) };
+    },
+
+    // US-17 (#48): pedidos del vecino con sesión, del más reciente al más antiguo.
+    misPedidos(vecinoId) {
+      return pedidosRepository.listarPorVecino(vecinoId).map(aVista);
     },
   };
 }

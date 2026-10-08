@@ -315,3 +315,80 @@ export async function confirmarCarrito(items: { codigo: string; cantidad: number
   }
   throw new ErrorApi(MENSAJE_PEDIDO_GENERICO);
 }
+
+// --- Ingreso con Neuro-Access y Mis pedidos (US-17, #47 y #48) --------------------------------------
+// La sesión vive en cookies httpOnly que pone el backend: el front nunca ve ni guarda tokens.
+
+export interface Vecino {
+  nombre: string;
+}
+
+// Respuesta de POST /api/sesion/qr. Con el proveedor simulado no hay QR (`qr` y `enlace` en null).
+export interface CodigoIngreso {
+  modo: 'neuron' | 'simulado';
+  qr: { contentType: string; base64: string } | null;
+  enlace: string | null;
+  venceEn: string;
+}
+
+// Respuesta de GET /api/sesion/qr.
+export type EstadoIngreso =
+  | { estado: 'pendiente'; venceEn: string }
+  | { estado: 'aprobado'; vecino: Vecino }
+  | { estado: 'vencido' | 'rechazado' | 'sin_intento'; mensaje: string };
+
+const MENSAJE_INGRESO_GENERICO = 'No pudimos crear tu código para ingresar. Inténtalo de nuevo en un momento.';
+const MENSAJE_MIS_PEDIDOS_GENERICO = 'No pudimos mostrar tus pedidos. Por favor, inténtalo de nuevo en un momento.';
+
+export class ErrorSinSesion extends ErrorApi {}
+
+async function pedirJson(ruta: string, metodo: 'GET' | 'POST', mensajeGenerico: string): Promise<unknown> {
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(ruta, { method: metodo });
+  } catch {
+    throw new ErrorApi(MENSAJE_SIN_CONEXION);
+  }
+  const cuerpo = await respuesta.json().catch(() => null);
+  if (respuesta.ok) return cuerpo;
+  const mensaje = respuesta.status < 500 && typeof cuerpo?.mensaje === 'string' ? cuerpo.mensaje : mensajeGenerico;
+  if (respuesta.status === 401) throw new ErrorSinSesion(mensaje);
+  throw new ErrorApi(mensaje);
+}
+
+export async function pedirCodigoIngreso(): Promise<CodigoIngreso> {
+  const cuerpo = (await pedirJson('/api/sesion/qr', 'POST', MENSAJE_INGRESO_GENERICO)) as CodigoIngreso | null;
+  if (!cuerpo || typeof cuerpo.venceEn !== 'string') throw new ErrorApi(MENSAJE_INGRESO_GENERICO);
+  return cuerpo;
+}
+
+export async function consultarIngreso(): Promise<EstadoIngreso> {
+  const cuerpo = (await pedirJson('/api/sesion/qr', 'GET', MENSAJE_INGRESO_GENERICO)) as EstadoIngreso | null;
+  if (!cuerpo || typeof cuerpo.estado !== 'string') throw new ErrorApi(MENSAJE_INGRESO_GENERICO);
+  return cuerpo;
+}
+
+// Solo funciona con el proveedor simulado (modo de prueba sin la app).
+export async function simularEscaneo(): Promise<void> {
+  await pedirJson('/api/sesion/qr/simular', 'POST', MENSAJE_INGRESO_GENERICO);
+}
+
+export async function obtenerSesion(): Promise<Vecino | null> {
+  const cuerpo = (await pedirJson('/api/sesion', 'GET', MENSAJE_GENERICO)) as { vecino?: Vecino | null } | null;
+  return cuerpo?.vecino ?? null;
+}
+
+export async function cerrarSesion(): Promise<void> {
+  await pedirJson('/api/sesion/cerrar', 'POST', MENSAJE_GENERICO);
+}
+
+// Cada pedido trae sus ítems (US-16): con el carrito, un pedido puede tener varios medicamentos.
+export async function listarMisPedidos(): Promise<PedidoCarrito[]> {
+  const cuerpo = (await pedirJson('/api/mis-pedidos', 'GET', MENSAJE_MIS_PEDIDOS_GENERICO)) as {
+    pedidos?: unknown;
+  } | null;
+  if (!cuerpo || !Array.isArray(cuerpo.pedidos) || !cuerpo.pedidos.every(esPedidoCarrito)) {
+    throw new ErrorApi(MENSAJE_MIS_PEDIDOS_GENERICO);
+  }
+  return cuerpo.pedidos;
+}

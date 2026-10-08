@@ -33,8 +33,8 @@ export function crearPedidosRepository(db) {
   `);
   const existeNumero = db.prepare('SELECT 1 FROM pedidos WHERE numero_pedido = ?').pluck();
   const insertarPedido = db.prepare(`
-    INSERT INTO pedidos (numero_pedido, total, estado, fecha_creacion, alias_vecino)
-    VALUES (@numero_pedido, @total, @estado, @fecha_creacion, @alias_vecino)
+    INSERT INTO pedidos (numero_pedido, total, estado, fecha_creacion, alias_vecino, vecino_id)
+    VALUES (@numero_pedido, @total, @estado, @fecha_creacion, @alias_vecino, @vecino_id)
   `);
   const insertarItem = db.prepare(`
     INSERT INTO pedido_items
@@ -46,8 +46,14 @@ export function crearPedidosRepository(db) {
     'SELECT * FROM pedido_items WHERE numero_pedido = ? ORDER BY codigo_medicamento'
   );
 
+  // US-17 (#48): "Mis pedidos", del más reciente al más antiguo.
+  const pedidosDeVecino = db.prepare(
+    'SELECT * FROM pedidos WHERE vecino_id = ? ORDER BY fecha_creacion DESC, numero_pedido'
+  );
+
   // `items` ya viene validado y sin códigos repetidos: [{ codigo, cantidad }].
-  const confirmar = db.transaction(({ items, alias = null }) => {
+  // `vecinoId` (US-17) viene de la sesión; sin sesión, el pedido queda anónimo.
+  const confirmar = db.transaction(({ items, alias = null, vecinoId = null }) => {
     const medicamentos = [];
     const inexistentes = [];
     for (const { codigo, cantidad } of items) {
@@ -83,6 +89,7 @@ export function crearPedidosRepository(db) {
       estado: ESTADO_INICIAL,
       fecha_creacion: new Date().toISOString(),
       alias_vecino: alias,
+      vecino_id: vecinoId,
     };
     // Si algún INSERT falla, la transacción revierte también todos los descuentos de stock.
     insertarPedido.run(pedido);
@@ -105,6 +112,10 @@ export function crearPedidosRepository(db) {
     buscarPorNumero(numeroPedido) {
       const pedido = db.prepare('SELECT * FROM pedidos WHERE numero_pedido = ?').get(numeroPedido);
       return pedido && { ...pedido, items: itemsDe.all(numeroPedido) };
+    },
+
+    listarPorVecino(vecinoId) {
+      return pedidosDeVecino.all(vecinoId).map((pedido) => ({ ...pedido, items: itemsDe.all(pedido.numero_pedido) }));
     },
   };
 }

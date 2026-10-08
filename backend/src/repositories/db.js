@@ -18,8 +18,9 @@ export function crearEsquema(db) {
 }
 
 // Tablas que el código necesita. Si la base viene de una versión anterior (por ejemplo, de antes de US-16,
-// sin `pedido_items`), cada compra fallaría con un error interno mientras /api/health dice que todo está bien.
-const TABLAS_REQUERIDAS = ['medicamentos', 'pedidos', 'pedido_items'];
+// sin `pedido_items`, o de antes de US-17, sin `vecinos`), cada compra fallaría con un error interno
+// mientras /api/health dice que todo está bien.
+const TABLAS_REQUERIDAS = ['medicamentos', 'pedidos', 'pedido_items', 'vecinos', 'intentos_ingreso', 'sesiones'];
 
 export function tablasFaltantes(db) {
   const existentes = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").pluck().all());
