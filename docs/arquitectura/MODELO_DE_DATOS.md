@@ -36,17 +36,24 @@ CREATE TABLE medicamentos (
 
 CREATE TABLE pedidos (
   numero_pedido      TEXT PRIMARY KEY,             -- "P-" + 6 caracteres alfanuméricos
-  codigo_medicamento TEXT NOT NULL REFERENCES medicamentos(codigo),
-  nombre_medicamento TEXT NOT NULL,                -- copia al momento de la compra
-  cantidad           INTEGER NOT NULL CHECK (cantidad BETWEEN 1 AND 20),
-  precio_unitario    INTEGER NOT NULL,             -- copia del precio al confirmar
-  total              INTEGER NOT NULL,             -- cantidad × precio, calculado en servidor
+  total              INTEGER NOT NULL,             -- suma de los subtotales de sus ítems, calculado en servidor
   estado             TEXT NOT NULL DEFAULT 'Solicitud creada' CHECK (estado IN (
     'Solicitud creada', 'En cotización', 'Validación de pago', 'En preparación',
     'Pedido en ruta', 'Entregado', 'No entregado', 'Listo para retirar',
     'Retirado en farmacia')),
   fecha_creacion     TEXT NOT NULL,                -- ISO 8601
   alias_vecino       TEXT                          -- solo alias ficticio, opcional
+);
+
+-- US-16: un pedido tiene uno o más ítems (un medicamento por ítem).
+CREATE TABLE pedido_items (
+  numero_pedido      TEXT NOT NULL REFERENCES pedidos(numero_pedido),
+  codigo_medicamento TEXT NOT NULL REFERENCES medicamentos(codigo),
+  nombre_medicamento TEXT NOT NULL,                -- copia al momento de la compra
+  cantidad           INTEGER NOT NULL CHECK (cantidad BETWEEN 1 AND 20),
+  precio_unitario    INTEGER NOT NULL,             -- copia del precio al confirmar
+  subtotal           INTEGER NOT NULL,             -- cantidad × precio, calculado en servidor
+  PRIMARY KEY (numero_pedido, codigo_medicamento) -- un medicamento una sola vez por pedido
 );
 ```
 
@@ -60,11 +67,11 @@ Semilla: `backend/seed/medicamentos_semilla.csv`, 34 filas. Sin stock: MED-014, 
 |---|---|---|---|
 | `GET /api/health` | — | — | `200 { ok: true }` |
 | `GET /api/medicamentos?q=` | US-02 | `q` con al menos 2 letras | `200 { resultados: [...] }` · si la lista está vacía agrega `mensaje: "No encontramos ese medicamento…"` · `400` si `q` es muy corto |
-| `POST /api/pedidos` | US-15 | `{ codigo, cantidad, alias? }` | `201 { pedido }` · `404 no_existe` · `400 cantidad_invalida` · `409 sin_stock` |
+| `POST /api/pedidos` | US-15, US-16 | un medicamento: `{ codigo, cantidad, alias? }` · carrito: `{ items: [{ codigo, cantidad }], alias? }` | `201 { pedido }` · `404 no_existe` · `400 cantidad_invalida` · `400 carrito_vacio` · `400 carrito_invalido` · `400 demasiados_items` · `409 sin_stock` |
 | `GET /api/backoffice/medicamentos` | US-13 | header `x-backoffice-token` | `200 { medicamentos: [...] }` · `401 { motivo, mensaje }` |
 | `PUT /api/backoffice/medicamentos/:codigo` | US-13 | `{ precioUnitario?, stock?, version }` + header (`version` obligatoria, #12) | `200 { medicamento }` · `400 { motivo, mensaje, errores: { campo: motivo } }` · `401 { motivo, mensaje }` · `404 no_existe` · `409 { motivo: "version_cambiada", mensaje }` si la versión cambió |
 
-Cada resultado de búsqueda devuelve: `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible`. El pedido devuelve: `numeroPedido, medicamento, cantidad, precioUnitario, total, estado, fechaCreacion`.
+Cada resultado de búsqueda devuelve: `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible`. El pedido devuelve: `numeroPedido, items, total, estado, fechaCreacion`, donde cada ítem trae `codigo, medicamento, cantidad, precioUnitario, subtotal`. Si el pedido tiene **un solo** ítem, también trae `medicamento, cantidad, precioUnitario` (los campos de US-15, para quien ya los lee); con varios medicamentos esos tres campos no vienen.
 
 Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para la vecina. Ejemplo: `"Este medicamento ya no tiene stock disponible."`
 
@@ -92,30 +99,48 @@ Los errores usan el cuerpo `{ motivo, mensaje }`, donde `mensaje` es texto para 
 - Un cambio válido sube `version` en 1 y responde `200 { medicamento }` con `codigo, nombre, principioActivo, presentacion, precioUnitario, stock, disponible, version`.
 - En cualquier endpoint, un error del cliente que detecta el servidor responde `{ motivo: "solicitud_invalida", mensaje }` con su código: `400` (JSON mal formado o dirección mal codificada), `413` (cuerpo demasiado grande) o `415` (codificación de caracteres no soportada). Un fallo interno real responde `500 { motivo: "error_interno", mensaje }`.
 
+**Detalle del carrito, `POST /api/pedidos` con `items` (US-16, #42):**
+
+- Un solo pedido para todos los medicamentos del carrito. El precio, el subtotal de cada ítem y el total los calcula siempre el servidor: cualquier `precioUnitario`, `subtotal` o `total` que mande el cliente se ignora.
+- Cada ítem tiene `cantidad` entera de 1 a 20 y un `codigo`. Si el mismo `codigo` viene repetido, se junta en un solo ítem (y la suma también debe ser de 1 a 20). Máximo 10 medicamentos distintos.
+- `items` vacío: `400 carrito_vacio`. `items` que no es una lista, o un ítem que no es un objeto: `400 carrito_invalido`. Más de 10: `400 demasiados_items`. Cantidad inválida en cualquier ítem: `400 cantidad_invalida`. Algún código fuera del catálogo: `404 no_existe`. En todos esos casos no se descuenta nada.
+- Todo o nada: si algún ítem no tiene stock suficiente responde `409 { motivo: "sin_stock", mensaje, faltantes: [{ codigo, medicamento, stockDisponible }] }`. El `mensaje` nombra cada medicamento que no alcanza y dice que no se creó ningún pedido. No se crea el pedido y el stock de todos los ítems queda sin cambios.
+- La compra de un solo medicamento (`{ codigo, cantidad }`) mantiene sus mensajes de US-15 y no trae `faltantes`.
+
 ## 4. Concurrencia (compra)
 
 La condición de stock va **dentro del mismo UPDATE**. SQLite ejecuta cada sentencia de forma atómica, así que dos compras de la última unidad nunca pueden confirmarse ambas:
 
 ```js
-const confirmarPedido = db.transaction(({ codigo, cantidad, alias }) => {
-  const med = db.prepare(
-    'SELECT * FROM medicamentos WHERE codigo = ? AND activo = 1'
-  ).get(codigo);
-  if (!med) return { ok: false, motivo: 'no_existe' };
+// items: [{ codigo, cantidad }], sin códigos repetidos
+const confirmarPedido = db.transaction(({ items, alias }) => {
+  const meds = [];
+  for (const { codigo, cantidad } of items) {
+    const med = db.prepare(
+      'SELECT * FROM medicamentos WHERE codigo = ? AND activo = 1'
+    ).get(codigo);
+    if (!med) return { ok: false, motivo: 'no_existe' };   // todavía no se escribió nada
+    meds.push({ med, cantidad });
+  }
 
-  const r = db.prepare(
-    'UPDATE medicamentos SET stock = stock - ?, version = version + 1 ' +
-    'WHERE codigo = ? AND stock >= ?'
-  ).run(cantidad, codigo, cantidad);
-  if (r.changes === 0) return { ok: false, motivo: 'sin_stock' };
+  const faltantes = [];
+  for (const { med, cantidad } of meds) {
+    const r = db.prepare(
+      'UPDATE medicamentos SET stock = stock - ?, version = version + 1 ' +
+      'WHERE codigo = ? AND stock >= ?'
+    ).run(cantidad, med.codigo, cantidad);
+    if (r.changes === 0) faltantes.push(med.codigo);
+  }
+  // Un solo ítem sin stock anula todo el carrito: al lanzar, SQLite revierte los descuentos anteriores.
+  if (faltantes.length > 0) throw new CompraRechazada({ ok: false, motivo: 'sin_stock', faltantes });
 
-  const pedido = { /* numero, total = cantidad * med.precio_unitario, estado inicial */ };
-  db.prepare('INSERT INTO pedidos (...) VALUES (...)').run(/* ... */);
+  // INSERT del pedido (total = suma de cantidad × med.precio_unitario) y de cada ítem en pedido_items
   return { ok: true, pedido };
 });
+// Se ejecuta con confirmarPedido.immediate(...) (BEGIN IMMEDIATE) y se atrapa CompraRechazada afuera.
 ```
 
-Si el `INSERT` falla, la transacción revierte también el descuento de stock.
+Si un `INSERT` falla, o algún ítem no alcanza, la transacción revierte **todos** los descuentos de stock: nunca queda un carrito descontado a medias.
 
 ## 5. Backoffice sin pisar ventas (issue #12)
 
